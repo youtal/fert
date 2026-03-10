@@ -28,6 +28,8 @@ export function useEcosystem(
   let resizeObserver: ResizeObserver
   let ecosystemStartTime = 0
   let lastFrameTime = 0
+  let restartStatusTimeout: ReturnType<typeof setTimeout> | undefined
+  let restartSimulationTimeout: ReturnType<typeof setTimeout> | undefined
 
   /**
    * 重置/初始化生态系统
@@ -35,9 +37,19 @@ export function useEcosystem(
    */
   const startEcosystem = () => {
     if (!canvasRef.value) return
+    if (restartStatusTimeout) {
+      clearTimeout(restartStatusTimeout)
+      restartStatusTimeout = undefined
+    }
+    if (restartSimulationTimeout) {
+      clearTimeout(restartSimulationTimeout)
+      restartSimulationTimeout = undefined
+    }
+
     particles.length = 0
     predators.length = 0
     store.state.peak = 0
+    store.sanitizeParams()
     // 注入初始 80 个猎物粒子
     for (let i = 0; i < 80; i++) {
       particles.push(new Particle(canvasRef.value.width, canvasRef.value.height))
@@ -55,6 +67,9 @@ export function useEcosystem(
    * @param canvas 画布 DOM，提供边界信息
    */
   const updatePhysics = (deltaTime: number, currentTime: number, canvas: HTMLCanvasElement) => {
+    const params = store.sanitizeParams()
+    const timeScale = deltaTime / CONFIG.FRAME_TIME_MS
+
     // 1. 构建本帧的空间哈希表，实现 $O(n)$ 的邻域查找
     spatialHash.clear()
     particles.forEach((p) => spatialHash.insert(p))
@@ -71,11 +86,11 @@ export function useEcosystem(
       }
       
       // 饥饿逻辑判定：若长时间未进食 (k 秒)，进入死亡状态
-      if (!pred.isDying && currentTime - pred.lastMealTime > store.params.k * 1000) {
+      if (!pred.isDying && currentTime - pred.lastMealTime > params.k * 1000) {
         pred.isDying = true
       }
       
-      pred.update(particles, canvas.width, canvas.height)
+      pred.update(particles, canvas.width, canvas.height, timeScale)
 
       // 猎杀冲突判定：检查捕食者与猎物的碰撞
       if (!pred.isDying) {
@@ -97,7 +112,7 @@ export function useEcosystem(
       if (!p) continue
       
       // 突变判定：猎物有一定概率突变为捕食者
-      const mutationChance = (store.params.m / 1000) * (deltaTime / 1000)
+      const mutationChance = (params.m / 1000) * (deltaTime / 1000)
       if (Math.random() < mutationChance) {
         predators.push(new Predator(p.x, p.y))
         particles.splice(i, 1)
@@ -105,8 +120,8 @@ export function useEcosystem(
       }
 
       // 繁衍判定：满足繁衍周期 (n 秒) 且未达到种群上限时产生后代
-      if (currentTime - p.lastReproductionTime > store.params.n * 1000) {
-        if (particles.length < CONFIG.HARD_CAP) {
+      if (currentTime - p.lastReproductionTime > params.n * 1000) {
+        if (particles.length + predators.length < CONFIG.HARD_CAP) {
           particles.push(new Particle(canvas.width, canvas.height, p.x, p.y))
         }
         p.lastReproductionTime = currentTime
@@ -114,12 +129,12 @@ export function useEcosystem(
 
       // 核心优化应用：仅从空间哈希表的邻近网格内获取粒子，极大减少 Boids 计算量
       const nearby = spatialHash.getNearby(p.x, p.y)
-      p.flock(nearby, predators, store.params.minSpacing)
+      p.flock(nearby, predators, params.minSpacing, timeScale)
 
       // 处理鼠标交互：驱散或吸引
-      if (mouse.active) p.steer(mouse.x, mouse.y, CONFIG.MOUSE_WEIGHT)
+      if (mouse.active) p.steer(mouse.x, mouse.y, CONFIG.MOUSE_WEIGHT, false, timeScale)
       
-      p.update(canvas.width, canvas.height)
+      p.update(canvas.width, canvas.height, timeScale)
     }
   }
 
@@ -133,10 +148,12 @@ export function useEcosystem(
 
     // 绘制粒子连线：基于空间哈希优化，仅在邻近粒子间建立连线
     ctx.lineWidth = 0.5
-    particles.forEach((p) => {
+    const particleOrder = new Map(particles.map((particle, index) => [particle, index]))
+    particles.forEach((p, index) => {
       const nearby = spatialHash.getNearby(p.x, p.y)
       nearby.forEach((other) => {
-        if (p === other) return
+        const otherIndex = particleOrder.get(other)
+        if (p === other || otherIndex === undefined || otherIndex <= index) return
         const d2 = (p.x - other.x) ** 2 + (p.y - other.y) ** 2
         // 距离阈值判定，确保连线平滑
         if (d2 < 8000) {
@@ -182,19 +199,20 @@ export function useEcosystem(
       // 灭绝判定：当所有实体均消失时
       if (particles.length === 0 && predators.length === 0) {
         store.state.status = '已崩溃'
+        const params = store.sanitizeParams()
         // 记录本纪元的数据日志
         store.addLog({
           id: currentTime,
           uptime: store.state.uptime,
           peak: store.state.peak,
-          n: store.params.n,
-          m: store.params.m,
-          k: store.params.k,
+          n: params.n,
+          m: params.m,
+          k: params.k,
         })
         // 自动触发重启逻辑
-        setTimeout(() => {
+        restartStatusTimeout = setTimeout(() => {
           store.state.status = '重启中'
-          setTimeout(() => startEcosystem(), 1000)
+          restartSimulationTimeout = setTimeout(() => startEcosystem(), 1000)
         }, 2000)
       }
     }
@@ -231,6 +249,8 @@ export function useEcosystem(
     // 组件销毁时务必停止循环并取消 DOM 监听，防止内存泄漏
     cancelAnimationFrame(animationFrame)
     if (resizeObserver) resizeObserver.disconnect()
+    if (restartStatusTimeout) clearTimeout(restartStatusTimeout)
+    if (restartSimulationTimeout) clearTimeout(restartSimulationTimeout)
   })
 
   return { mouse }

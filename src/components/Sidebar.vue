@@ -20,6 +20,7 @@ const router = useRouter()
 const route = useRoute()
 // 跟踪 Logo 区域的悬停状态，用于显示交互反馈
 const isLogoHovered = ref(false)
+type RoutePath = '/' | '/particles'
 
 /**
  * 处理 Logo 点击事件
@@ -33,7 +34,7 @@ const handleLogoClick = () => {
  * 路由跳转逻辑
  * @param path 目标路由路径
  */
-const navigate = (path: string) => {
+const navigate = (path: RoutePath) => {
   router.push(path)
 }
 </script>

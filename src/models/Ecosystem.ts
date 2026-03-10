@@ -68,6 +68,7 @@ export class SpatialHash {
  * 全局物理引擎配置
  */
 export const CONFIG = {
+  FRAME_TIME_MS: 1000 / 60, // 以 60 FPS 作为基准时间步
   MAX_SPEED: 3.0,          // 猎物最大航速
   PREDATOR_SPEED: 4.0,     // 捕食者最大航速
   MAX_FORCE: 0.12,         // 最大转向力约束，模拟惯性
@@ -113,7 +114,7 @@ export class Particle {
   /**
    * 施加转向力
    */
-  applyForce(fx: number, fy: number) { this.ax += fx; this.ay += fy; }
+  applyForce(fx: number, fy: number, timeScale = 1) { this.ax += fx * timeScale; this.ay += fy * timeScale; }
 
   /**
    * 转向核心算法：Desired Velocity - Current Velocity
@@ -122,7 +123,7 @@ export class Particle {
    * @param weight 力量权重
    * @param flee 是否为逃跑模式
    */
-  steer(targetX: number, targetY: number, weight: number, flee = false) {
+  steer(targetX: number, targetY: number, weight: number, flee = false, timeScale = 1) {
     let dx = targetX - this.x; let dy = targetY - this.y;
     const d = Math.sqrt(dx * dx + dy * dy);
     if (d > 0) {
@@ -135,7 +136,7 @@ export class Particle {
       const sl = Math.sqrt(sx * sx + sy * sy);
       // 截断转向力以实现平滑转向
       if (sl > CONFIG.MAX_FORCE) { sx = (sx / sl) * CONFIG.MAX_FORCE; sy = (sy / sl) * CONFIG.MAX_FORCE; }
-      this.applyForce(sx * weight, sy * weight);
+      this.applyForce(sx * weight, sy * weight, timeScale);
     }
   }
 
@@ -144,7 +145,7 @@ export class Particle {
    * 综合处理三种核心规则：分离、队列、凝聚，并额外增加捕食者避障。
    * @param nearbyOthers 仅包含邻近区域的粒子列表 (由空间哈希提供)
    */
-  flock(nearbyOthers: Particle[], predators: Predator[], minSpacing: number) {
+  flock(nearbyOthers: Particle[], predators: Predator[], minSpacing: number, timeScale = 1) {
     let sepX = 0, sepY = 0, aliX = 0, aliY = 0, cohX = 0, cohY = 0, count = 0;
     
     for (const other of nearbyOthers) {
@@ -166,30 +167,31 @@ export class Particle {
       if (sepLen > 0) {
         // 应用分离力
         this.applyForce((sepX / sepLen * CONFIG.MAX_SPEED - this.vx) * CONFIG.BOID.separation, 
-                        (sepY / sepLen * CONFIG.MAX_SPEED - this.vy) * CONFIG.BOID.separation);
+                        (sepY / sepLen * CONFIG.MAX_SPEED - this.vy) * CONFIG.BOID.separation,
+                        timeScale);
       }
       // 应用队列力与凝聚力
-      this.steer(this.x + aliX / count, this.y + aliY / count, CONFIG.BOID.alignment);
-      this.steer(cohX / count, cohY / count, CONFIG.BOID.cohesion);
+      this.steer(this.x + aliX / count, this.y + aliY / count, CONFIG.BOID.alignment, false, timeScale);
+      this.steer(cohX / count, cohY / count, CONFIG.BOID.cohesion, false, timeScale);
     }
 
     // 处理躲避捕食者：捕食者拥有更高的避障优先级
     for (const pred of predators) {
       if (pred.isDying) continue;
       const distToPred = Math.sqrt((this.x - pred.x)**2 + (this.y - pred.y)**2);
-      if (distToPred < CONFIG.EVASION_RADIUS) this.steer(pred.x, pred.y, CONFIG.BOID.evasion, true);
+      if (distToPred < CONFIG.EVASION_RADIUS) this.steer(pred.x, pred.y, CONFIG.BOID.evasion, true, timeScale);
     }
   }
 
   /**
    * 位置更新与边界反弹处理
    */
-  update(w: number, h: number) {
+  update(w: number, h: number, timeScale = 1) {
     this.vx += this.ax; this.vy += this.ay;
     const speed = Math.sqrt(this.vx * this.vx + this.vy * this.vy);
     // 速度截断
     if (speed > CONFIG.MAX_SPEED) { this.vx = (this.vx / speed) * CONFIG.MAX_SPEED; this.vy = (this.vy / speed) * CONFIG.MAX_SPEED; }
-    this.x += this.vx; this.y += this.vy;
+    this.x += this.vx * timeScale; this.y += this.vy * timeScale;
     this.ax = 0; this.ay = 0; // 重置加速度
     
     // 弹性边界：触碰边界时反转对应维度的速度向量
@@ -235,10 +237,10 @@ export class Predator {
    * 捕食者追踪逻辑
    * 目标：寻找当前场景中距离最近的猎物并全速追击。
    */
-  update(targets: Particle[], w: number, h: number) {
+  update(targets: Particle[], w: number, h: number, timeScale = 1) {
     // 死亡过程中停止一切物理活动，仅处理动画逻辑
     if (this.isDying) {
-      this.deathProgress += 0.025;
+      this.deathProgress += 0.025 * timeScale;
       return;
     }
     
@@ -254,12 +256,12 @@ export class Predator {
       // 转向追击逻辑
       let dx = target.x - this.x; let dy = target.y - this.y;
       const d = Math.sqrt(dx * dx + dy * dy);
-      if (d > 0) { this.vx += (dx / d) * 0.3; this.vy += (dy / d) * 0.3; }
+      if (d > 0) { this.vx += (dx / d) * 0.3 * timeScale; this.vy += (dy / d) * 0.3 * timeScale; }
     }
     
     const speed = Math.sqrt(this.vx * this.vx + this.vy * this.vy);
     if (speed > CONFIG.PREDATOR_SPEED) { this.vx = (this.vx / speed) * CONFIG.PREDATOR_SPEED; this.vy = (this.vy / speed) * CONFIG.PREDATOR_SPEED; }
-    this.x += this.vx; this.y += this.vy;
+    this.x += this.vx * timeScale; this.y += this.vy * timeScale;
     
     // 边界检测
     if (this.x < this.radius) { this.x = this.radius; this.vx *= -1; }

@@ -29,6 +29,21 @@ describe('Ecosystem Store (状态管理) 测试', () => {
     expect(store.params.n).toBe(10)
   })
 
+  it('应该将非法参数钳制回安全范围', () => {
+    const store = useEcosystemStore()
+    store.params.n = Number.POSITIVE_INFINITY
+    store.params.m = -5
+    store.params.k = 999
+    store.params.minSpacing = Number.NaN
+
+    const sanitized = store.sanitizeParams()
+
+    expect(sanitized.n).toBe(8)
+    expect(sanitized.m).toBe(0)
+    expect(sanitized.k).toBe(15)
+    expect(sanitized.minSpacing).toBe(35)
+  })
+
   it('添加日志时应保持最多 5 条记录的上限', () => {
     const store = useEcosystemStore()
     const createLog = (id: number) => ({

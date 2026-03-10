@@ -81,6 +81,19 @@ describe('Particle (猎物粒子) 测试', () => {
     const speed = Math.sqrt(p.vx * p.vx + p.vy * p.vy)
     expect(speed).toBeCloseTo(CONFIG.MAX_SPEED)
   })
+
+  it('时间步缩短时位移应按比例缩放', () => {
+    const w = 800, h = 600
+    const p = new Particle(w, h, 100, 100)
+    p.vx = CONFIG.MAX_SPEED
+    p.vy = 0
+    p.ax = 0
+    p.ay = 0
+
+    p.update(w, h, 0.5)
+
+    expect(p.x).toBeCloseTo(100 + CONFIG.MAX_SPEED * 0.5)
+  })
 })
 
 describe('Predator (捕食者) 测试', () => {
@@ -102,5 +115,14 @@ describe('Predator (捕食者) 测试', () => {
     const initialProgress = pred.deathProgress
     pred.update([], 800, 600)
     expect(pred.deathProgress).toBeGreaterThan(initialProgress)
+  })
+
+  it('死亡动画进度应随时间步缩放', () => {
+    const pred = new Predator(100, 100)
+    pred.isDying = true
+
+    pred.update([], 800, 600, 0.5)
+
+    expect(pred.deathProgress).toBeCloseTo(0.0125)
   })
 })

@@ -22,13 +22,40 @@ export interface HistoryLog {
   k: number;       // 对应的饥饿阈值参数
 }
 
+export interface EcosystemParams {
+  n: number
+  m: number
+  k: number
+  minSpacing: number
+}
+
+const DEFAULT_PARAMS: EcosystemParams = {
+  n: 8,
+  m: 4,
+  k: 6,
+  minSpacing: 35,
+}
+
+const PARAM_RANGES = {
+  n: { min: 2, max: 15 },
+  m: { min: 0, max: 20 },
+  k: { min: 2, max: 15 },
+  minSpacing: { min: 10, max: 100 },
+} as const
+
+const clampParam = (
+  value: number,
+  fallback: number,
+  range: { min: number; max: number },
+) => {
+  if (!Number.isFinite(value)) return fallback
+  return Math.min(range.max, Math.max(range.min, Math.round(value)))
+}
+
 export const useEcosystemStore = defineStore('ecosystem', () => {
   // 演化控制参数：支持在 UI 界面通过滑块实时调整
   const params = reactive({
-    n: 8,           // 繁衍周期 (秒)：猎物产生后代的时间间隔
-    m: 4,           // 突变概率 (‰)：猎物每秒突变为捕食者的概率
-    k: 6,           // 饥饿阈值 (秒)：捕食者未进食导致死亡的时间上限
-    minSpacing: 35, // 粒子最小间隙 (像素)：影响 Boids 分离行为的紧密度
+    ...DEFAULT_PARAMS,
   })
 
   // 实时运行状态：由逻辑钩子 (useEcosystem) 动态写入
@@ -52,10 +79,28 @@ export const useEcosystemStore = defineStore('ecosystem', () => {
     if (historyLogs.value.length > 5) historyLogs.value.pop()
   }
 
+  /**
+   * 对外部输入做最终兜底，避免被 DevTools 或脚本写入异常值后污染仿真循环。
+   */
+  const sanitizeParams = (): EcosystemParams => {
+    params.n = clampParam(params.n, DEFAULT_PARAMS.n, PARAM_RANGES.n)
+    params.m = clampParam(params.m, DEFAULT_PARAMS.m, PARAM_RANGES.m)
+    params.k = clampParam(params.k, DEFAULT_PARAMS.k, PARAM_RANGES.k)
+    params.minSpacing = clampParam(params.minSpacing, DEFAULT_PARAMS.minSpacing, PARAM_RANGES.minSpacing)
+
+    return {
+      n: params.n,
+      m: params.m,
+      k: params.k,
+      minSpacing: params.minSpacing,
+    }
+  }
+
   return {
     params,
     state,
     historyLogs,
-    addLog
+    addLog,
+    sanitizeParams,
   }
 })
