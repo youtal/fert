@@ -1,98 +1,56 @@
 <script setup lang="ts">
+/**
+ * MainLayout.vue
+ * 
+ * 应用程序主布局组件。
+ * 职责：
+ * 1. 组合全局侧边栏导航。
+ * 2. 提供响应式的内容展示区域，承载不同的 View 视图组件。
+ * 3. 管理全局布局相关的 UI 状态（如侧边栏的展开/折叠）。
+ */
 import { ref } from 'vue'
-import Sidebar from '../components/Sidebar.vue'
+import Sidebar from '@/components/Sidebar.vue'
 
-const isCollapsed = ref(false)
+// 局部响应式状态：管理侧边栏的折叠状态
+// 默认展开以提供直观导航
+const isSidebarCollapsed = ref(false)
 
+/**
+ * 切换侧边栏状态的开关函数
+ */
 const toggleSidebar = () => {
-  isCollapsed.value = !isCollapsed.value
+  isSidebarCollapsed.value = !isSidebarCollapsed.value
 }
 </script>
 
 <template>
-  <div class="layout-container">
-    <Sidebar :is-collapsed="isCollapsed" @toggle="toggleSidebar" />
-
-    <main class="main-content">
-      <header class="top-bar">
-        <div class="breadcrumb">Home / Dashboard</div>
-        <div class="user-profile">
-          <div class="avatar">JD</div>
-        </div>
-      </header>
-      
-      <section class="content-body">
-        <slot>
-          <div class="default-content">
-            <h1>Welcome to Fret</h1>
-            <p>Modern interface with Vapor Mode performance.</p>
-          </div>
-        </slot>
-      </section>
+  <div class="main-layout">
+    <!-- 侧边栏导航：传入折叠状态并监听切换请求 -->
+    <Sidebar :is-collapsed="isSidebarCollapsed" @toggle="toggleSidebar" />
+    
+    <!-- 主内容区：使用 <main> 语义化标签 -->
+    <main class="content-body">
+      <!-- Slot 插槽：用于渲染路由匹配到的视图组件 -->
+      <slot></slot>
     </main>
   </div>
 </template>
 
 <style scoped>
-.layout-container {
+.main-layout {
   display: flex;
-  height: 100vh;
-  width: 100vw;
-  background-color: #f8fafc;
-  font-family: 'Inter', system-ui, -apple-system, sans-serif;
-  color: #1e293b;
-  overflow: hidden;
-}
-
-.main-content {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
-}
-
-.top-bar {
-  height: 80px;
-  background: white;
-  border-bottom: 1px solid #e2e8f0;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 0 2rem;
-  flex-shrink: 0;
-}
-
-.breadcrumb {
-  color: #64748b;
-  font-size: 0.9rem;
-}
-
-.avatar {
-  width: 40px;
-  height: 40px;
-  border-radius: 50%;
-  background: #e2e8f0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-weight: 600;
-  font-size: 0.8rem;
+  height: 100vh; /* 撑满屏幕高度 */
+  width: 100vw;  /* 撑满屏幕宽度 */
+  overflow: hidden; /* 防止出现意外的全局滚动条 */
+  background-color: #0f172a; /* 使用深蓝色 (Slate 900) 作为应用底色 */
 }
 
 .content-body {
-  flex: 1;
+  flex: 1; /* 占据侧边栏之外的剩余全部空间 */
   position: relative;
-  overflow: hidden;
-}
-
-.default-content {
-  padding: 2.5rem;
-}
-
-h1 {
-  font-size: 2.2rem;
-  font-weight: 800;
-  margin-bottom: 0.75rem;
-  color: #1e293b;
+  overflow-y: auto; /* 仅在内容溢出时允许垂直滚动 */
+  overflow-x: hidden;
+  /* 平滑过渡背景色或可能的布局位移 */
+  transition: all 0.3s; 
 }
 </style>
