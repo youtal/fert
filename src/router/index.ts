@@ -7,6 +7,7 @@
 import { createRouter, createWebHistory } from 'vue-router'
 import DashboardView from '@/views/DashboardView.vue'
 import ParticleView from '@/views/ParticleView.vue'
+import SudokuView from '@/views/SudokuView.vue'
 
 const router = createRouter({
   // 使用 HTML5 历史模式
@@ -21,6 +22,11 @@ const router = createRouter({
       path: '/particles',
       name: 'particles',
       component: ParticleView,
+    },
+    {
+      path: '/sudoku',
+      name: 'sudoku',
+      component: SudokuView,
     }
   ],
 })

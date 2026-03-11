@@ -32,8 +32,9 @@ describe('Sidebar (侧边栏) 组件测试', () => {
     const wrapper = mount(Sidebar, {
       props: { isCollapsed: true }
     })
-    expect(wrapper.text()).not.toContain('Fret 框架')
-    expect(wrapper.find('.logo-text').exists()).toBe(false)
+    // 文本元素依然在 DOM 中，只是通过 CSS class 隐藏以实现动画过渡
+    const textContainer = wrapper.find('.logo-container .text-container')
+    expect(textContainer.classes()).toContain('hidden')
   })
 
   it('点击折叠按钮时应触发 toggle 事件', async () => {
