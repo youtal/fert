@@ -12,8 +12,8 @@ import { ref } from 'vue'
 import Sidebar from '@/components/Sidebar.vue'
 
 // 局部响应式状态：管理侧边栏的折叠状态
-// 默认展开以提供直观导航
-const isSidebarCollapsed = ref(false)
+// 默认折叠以提供最大化内容展示空间
+const isSidebarCollapsed = ref(true)
 
 /**
  * 切换侧边栏状态的开关函数

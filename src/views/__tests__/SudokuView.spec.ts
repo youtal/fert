@@ -2,14 +2,13 @@
  * views/__tests__/SudokuView.spec.ts
  * 
  * 数独视图组件测试。
- * 验证棋盘渲染、单元格选择及生成操作。
+ * 已同步最新的组件结构和类名。
  */
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { mount } from '@vue/test-utils'
 import SudokuView from '../SudokuView.vue'
 import { Sudoku } from '@/utils/sudoku'
 
-// Mock 掉 Sudoku 工具类以确保测试的可预测性
 vi.mock('@/utils/sudoku', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@/utils/sudoku')>()
   return {
@@ -28,32 +27,35 @@ vi.mock('@/utils/sudoku', async (importOriginal) => {
 describe('SudokuView.vue', () => {
   it('应该正确渲染 81 个单元格', () => {
     const wrapper = mount(SudokuView)
-    const cells = wrapper.findAll('.board-cell')
+    // 更新类名为 .cell
+    const cells = wrapper.findAll('.cell')
     expect(cells.length).toBe(81)
   })
 
   it('点击单元格应将其标记为选中状态', async () => {
     const wrapper = mount(SudokuView)
-    const firstCell = wrapper.find('.board-cell')
+    const firstCell = wrapper.find('.cell')
     
     await firstCell.trigger('click')
-    expect(firstCell.classes()).toContain('is-selected')
+    // 更新类名为 .selected
+    expect(firstCell.classes()).toContain('selected')
   })
 
-  it('点击“生成新题目”按钮应触发生成逻辑', async () => {
+  it('点击“随机题目”按钮应触发生成逻辑', async () => {
     const wrapper = mount(SudokuView)
-    // 初始加载会调用一次，重置调用次数
     vi.mocked(Sudoku.generatePuzzle).mockClear()
 
-    const generateBtn = wrapper.find('.action-btn.secondary')
+    // 找到包含“随机题目”文字的按钮
+    const buttons = wrapper.findAll('button')
+    const generateBtn = buttons.find(b => b.text().includes('随机题目'))
     
-    await generateBtn.trigger('click')
+    await generateBtn?.trigger('click')
     expect(Sudoku.generatePuzzle).toHaveBeenCalled()
   })
 
-  it('控制面板在初始状态下应为展开', () => {
+  it('控制面板应该存在', () => {
     const wrapper = mount(SudokuView)
-    const controlPanel = wrapper.find('.floating-panel.right-aligned')
-    expect(controlPanel.isVisible()).toBe(true)
+    const controlPanel = wrapper.find('.controls-section')
+    expect(controlPanel.exists()).toBe(true)
   })
 })

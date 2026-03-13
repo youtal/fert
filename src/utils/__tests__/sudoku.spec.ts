@@ -95,10 +95,31 @@ describe('Sudoku 核心算法测试', () => {
       expect(count).toBe(holes)
     })
 
-    it('生成的题目应该是有解的', () => {
-      const { puzzle } = Sudoku.generatePuzzle(30)
-      const solved = Sudoku.solve(puzzle)
-      expect(solved).toBe(true)
+    it('生成的题目应该是有解的且解是唯一的', () => {
+      const { puzzle } = Sudoku.generatePuzzle(35)
+      expect(Sudoku.countSolutions(puzzle)).toBe(1)
+    })
+
+    it('countSolutions 应该能正确识别多解情况', () => {
+      // 创建一个全空网格（具有极多解）
+      const empty = Sudoku.createEmptyGrid()
+      expect(Sudoku.countSolutions(empty)).toBe(2) // limit 默认为 2
+    })
+
+    it('countSolutions 应该能正确识别唯一解情况', () => {
+      // 构造一个接近完成的唯一解数独
+      const nearComplete = [
+        [1, 2, 3, 4, 5, 6, 7, 8, 9],
+        [4, 5, 6, 7, 8, 9, 1, 2, 3],
+        [7, 8, 9, 1, 2, 3, 4, 5, 6],
+        [2, 3, 4, 5, 6, 7, 8, 9, 1],
+        [5, 6, 7, 8, 9, 1, 2, 3, 4],
+        [8, 9, 1, 2, 3, 4, 5, 6, 7],
+        [3, 4, 5, 6, 7, 8, 9, 1, 2],
+        [6, 7, 8, 9, 1, 2, 3, 4, 5],
+        [9, 1, 2, 0, 4, 5, 6, 7, 8] // 挖掉一个
+      ]
+      expect(Sudoku.countSolutions(nearComplete)).toBe(1)
     })
   })
 })
