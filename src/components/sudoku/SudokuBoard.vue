@@ -3,9 +3,7 @@
  * components/sudoku/SudokuBoard.vue
  * 
  * 专门负责数独 9x9 网格的渲染。
- * 核心逻辑：
- * 1. 响应单元格点击事件并向上传递选中坐标。
- * 2. 根据 solveType 和 validationStep 展示动态样式。
+ * 恢复了原始的样式、高亮逻辑与动画。
  */
 import type { SudokuGrid } from '@/utils/sudoku'
 
@@ -17,31 +15,64 @@ interface Props {
   validationStep: number
   isValidating: boolean
   isSuccess: boolean
+  isSolving: boolean
 }
 
-defineProps<Props>()
+const props = defineProps<Props>()
 const emit = defineEmits<{
   (e: 'select', row: number, col: number): void
 }>()
+
+const isInBlock = (r: number, c: number, blockIdx: number) => {
+  return Math.floor(r / 3) * 3 + Math.floor(c / 3) === blockIdx
+}
+
+const getHighlightClass = (r: number, c: number) => {
+  const isSelected = props.selectedCell.row === r && props.selectedCell.col === c
+  const isSameRow = props.selectedCell.row !== -1 && props.selectedCell.row === r
+  const isSameCol = props.selectedCell.col !== -1 && props.selectedCell.col === c
+  const isSameBlock = props.selectedCell.row !== -1 && 
+                      Math.floor(props.selectedCell.row / 3) === Math.floor(r / 3) && 
+                      Math.floor(props.selectedCell.col / 3) === Math.floor(c / 3)
+
+  const inValidationScan = props.isValidating && (
+    r === props.validationStep || 
+    c === props.validationStep || 
+    isInBlock(r, c, props.validationStep)
+  )
+
+  const type = props.solveType[r]?.[c] ?? 0
+  const fixed = props.lockMask[r]?.[c] ?? false
+
+  return {
+    'is-selected': isSelected,
+    'is-related': !isSelected && (isSameRow || isSameCol || isSameBlock),
+    'is-fixed': fixed,
+    'is-logic': type === 1,
+    'is-backtrack': type === 2,
+    'is-validating': inValidationScan, 
+    'is-error': props.isValidating && !props.isSuccess && inValidationScan,
+    'border-right': (c + 1) % 3 === 0 && c < 8,
+    'border-bottom': (r + 1) % 3 === 0 && r < 8
+  }
+}
 </script>
 
 <template>
-  <div class="sudoku-board" :class="{ 'validating': isValidating, 'success': isSuccess && !isValidating, 'failure': !isSuccess && !isValidating }">
-    <div v-for="(rowArr, r) in grid" :key="r" class="row">
+  <div class="sudoku-board" :class="{ 
+    'solving-active': isSolving, 
+    'validation-active': isValidating && isSuccess,
+    'validation-error': isValidating && !isSuccess
+  }">
+    <div v-for="(row, rIdx) in grid" :key="rIdx" class="board-row">
       <div 
-        v-for="(cell, c) in rowArr" :key="c" 
-        class="cell"
-        :class="[
-          `type-${solveType[r][c]}`,
-          { 
-            'locked': lockMask[r][c], 
-            'selected': selectedCell.row === r && selectedCell.col === c,
-            'validating-highlight': validationStep === r || (validationStep === 9 && isSuccess)
-          }
-        ]"
-        @click="emit('select', r, c)"
+        v-for="(cell, cIdx) in row" 
+        :key="cIdx" 
+        class="board-cell"
+        :class="getHighlightClass(rIdx, cIdx)"
+        @click="emit('select', rIdx, cIdx)"
       >
-        {{ cell !== 0 ? cell : '' }}
+        {{ cell === 0 ? '' : cell }}
       </div>
     </div>
   </div>
@@ -49,59 +80,77 @@ const emit = defineEmits<{
 
 <style scoped>
 .sudoku-board {
-  display: flex;
-  flex-direction: column;
-  background: #334155;
-  border: 4px solid #334155;
-  border-radius: 8px;
-  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.3);
-  overflow: hidden;
-  transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+  background: rgba(15, 23, 42, 0.8);
+  border: 3px solid #334155; border-radius: 12px; padding: 6px;
+  box-shadow: 0 0 40px rgba(0,0,0,0.5);
+  transition: all 0.5s;
+}
+.solving-active { border-color: #818cf8; box-shadow: 0 0 50px rgba(99, 102, 241, 0.2); }
+
+.validation-active { 
+  border-color: #10b981; 
+  box-shadow: 0 0 60px rgba(16, 185, 129, 0.3);
+  animation: successPulse 1.5s infinite;
+}
+.validation-error {
+  border-color: #ef4444;
+  box-shadow: 0 0 60px rgba(239, 68, 68, 0.3);
+  animation: errorPulse 0.5s infinite;
 }
 
-.row { display: flex; }
+@keyframes successPulse {
+  0% { transform: scale(1); }
+  50% { transform: scale(1.01); box-shadow: 0 0 80px rgba(16, 185, 129, 0.4); }
+  100% { transform: scale(1); }
+}
+@keyframes errorPulse {
+  0%, 100% { transform: translateX(0); }
+  25% { transform: translateX(-4px); }
+  75% { transform: translateX(4px); }
+}
 
-.cell {
+.board-row { display: flex; }
+
+.board-cell {
   width: 54px; height: 54px;
   display: flex; align-items: center; justify-content: center;
-  background: #1e293b;
-  color: #f8fafc;
-  font-size: 1.5rem; font-weight: 600;
-  border: 1px solid #334155;
-  cursor: pointer;
-  transition: all 0.15s ease;
-  user-select: none;
+  font-size: 1.5rem; font-weight: 700;
+  border: 1px solid rgba(71, 85, 105, 0.2);
+  cursor: pointer; transition: all 0.1s;
+  position: relative;
 }
 
-/* 粗线分界线：3x3 区域 */
-.row:nth-child(3n) { border-bottom: 3px solid #334155; }
-.row:last-child { border-bottom: none; }
-.cell:nth-child(3n) { border-right: 3px solid #334155; }
-.cell:last-child { border-right: none; }
+/* 颜色定义 */
+.board-cell.is-fixed { color: #f8fafc; }     /* 题目: 白色 */
+.board-cell.is-logic { color: #10b981; }     /* 逻辑: 绿色 */
+.board-cell.is-backtrack { color: #fbbf24; } /* 回溯: 黄色 */
 
-.cell:hover { background: #334155; z-index: 2; }
-.cell.selected { background: #3b82f6 !important; color: white; transform: scale(1.05); z-index: 10; box-shadow: 0 0 15px rgba(59, 130, 246, 0.5); }
-.cell.locked { color: #94a3b8; font-weight: 400; background: #0f172a; }
-
-/* 动态状态颜色 */
-.type-1 { color: #10b981; } /* 逻辑解 */
-.type-2 { background: #fde047 !important; color: #1e293b; } /* 回溯中 */
-.type-3 { color: #34d399; } /* 用户正确 */
-.type-4 { color: #f87171; } /* 用户错误 */
-
-/* 验证动画效果 */
-.validating-highlight { background: #3b82f6 !important; color: white; }
-.success { transform: scale(1.02); box-shadow: 0 0 40px rgba(16, 185, 129, 0.3); border-color: #10b981; }
-.failure { animation: shake 0.4s ease-in-out; border-color: #ef4444; }
-
-@keyframes shake {
-  0%, 100% { transform: translateX(0); }
-  25% { transform: translateX(-8px); }
-  75% { transform: translateX(8px); }
+.board-cell.is-selected {
+  background: rgba(99, 102, 241, 0.4) !important;
+  box-shadow: inset 0 0 15px rgba(129, 140, 248, 0.6);
+  z-index: 5; transform: scale(1.05);
+  border-radius: 4px; border-color: #818cf8;
 }
+
+.board-cell.is-related { background: rgba(255, 255, 255, 0.04); }
+
+.board-cell.is-validating {
+  background: rgba(16, 185, 129, 0.25) !important;
+  border-color: #10b981;
+  color: #10b981 !important;
+  text-shadow: 0 0 10px rgba(16, 185, 129, 0.8);
+}
+.board-cell.is-error {
+  background: rgba(239, 68, 68, 0.25) !important;
+  border-color: #ef4444;
+  color: #ef4444 !important;
+}
+
+.border-right { border-right: 3px solid #475569; }
+.border-bottom { border-bottom: 3px solid #475569; }
 
 /* 适配移动端 */
 @media (max-width: 600px) {
-  .cell { width: 40px; height: 40px; font-size: 1.1rem; }
+  .board-cell { width: 40px; height: 40px; font-size: 1.1rem; }
 }
 </style>

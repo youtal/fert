@@ -3,9 +3,9 @@
  * components/sudoku/SudokuControls.vue
  * 
  * 数独控制面板组件。
- * 负责：数字输入、解算速度调节、核心操作按钮。
+ * 恢复了原始的样式定义。
  */
-import { ref } from 'vue'
+import { ref, watch } from 'vue'
 
 const props = defineProps<{
   isSolving: boolean
@@ -18,8 +18,11 @@ const emit = defineEmits([
   'fill', 'update:solveSpeed', 'solve', 'generate', 'clear', 'confirm'
 ])
 
-// 内部同步 solveSpeed 的本地变量（用于 v-model）
 const localSolveSpeed = ref(props.solveSpeed)
+watch(() => props.solveSpeed, (newVal) => {
+  localSolveSpeed.value = newVal
+})
+
 const updateSpeed = () => emit('update:solveSpeed', localSolveSpeed.value)
 </script>
 
@@ -63,11 +66,7 @@ const updateSpeed = () => emit('update:solveSpeed', localSolveSpeed.value)
 </template>
 
 <style scoped>
-.glass-card {
-  background: rgba(15, 23, 42, 0.7); backdrop-filter: blur(12px); border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 16px; padding: 1.5rem;
-}
 .control-panel-inner { width: 320px; }
-.card-header h3 { margin-bottom: 1rem; color: #f1f5f9; font-size: 1.1rem; }
 .divider { height: 1px; background: rgba(255,255,255,0.05); margin: 1.5rem 0; }
 
 .number-pad { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.6rem; }
@@ -91,11 +90,14 @@ const updateSpeed = () => emit('update:solveSpeed', localSolveSpeed.value)
 .action-btn.secondary { background: rgba(255,255,255,0.05); color: #e2e8f0; border: 1px solid rgba(255,255,255,0.1); }
 .action-btn.danger { background: rgba(239, 68, 68, 0.1); color: #f87171; border: 1px solid rgba(239, 68, 68, 0.2); }
 
+.glass-card {
+  background: rgba(15, 23, 42, 0.7); backdrop-filter: blur(12px); border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 16px; padding: 1.5rem;
+}
+.card-header h3 { margin-bottom: 1rem; color: #f1f5f9; font-size: 1.1rem; }
+
 .slider-group { margin-bottom: 1.2rem; }
 .slider-info { display: flex; justify-content: space-between; font-size: 0.8rem; color: #94a3b8; margin-bottom: 8px; }
-.slider-val { background: rgba(255,255,255,0.1); padding: 1px 6px; border-radius: 4px; font-family: monospace; color: #38bdf8; font-weight: 700; }
-.neon-slider { -webkit-appearance: none; width: 100%; height: 16px; background: transparent; outline: none; }
-.neon-slider::-webkit-slider-runnable-track { width: 100%; height: 4px; background: #334155; border-radius: 2px; }
-.neon-slider.purple::-webkit-slider-runnable-track { background: #8b5cf6; }
-.neon-slider::-webkit-slider-thumb { -webkit-appearance: none; height: 14px; width: 14px; border-radius: 50%; background: #6366f1; cursor: pointer; border: 2px solid #fff; margin-top: -5px; box-shadow: 0 0 10px rgba(99, 102, 241, 0.4); }
+.slider-val { color: #818cf8; font-weight: 700; font-family: monospace; }
+.neon-slider { -webkit-appearance: none; width: 100%; height: 4px; background: #334155; border-radius: 2px; }
+.neon-slider::-webkit-slider-thumb { -webkit-appearance: none; width: 18px; height: 18px; border-radius: 50%; background: #6366f1; cursor: pointer; border: 3px solid #fff; }
 </style>

@@ -2,10 +2,10 @@
 /**
  * components/sudoku/SudokuInfo.vue
  * 
- * 数独辅助信息组件（说明与难度设置）。
- * 负责：侧边浮动面板的展示。
+ * 专门负责数独面板的说明、图例以及难度调节逻辑。
+ * 恢复了原始的样式、图例颜色与内容。
  */
-import { ref } from 'vue'
+import { ref, watch } from 'vue'
 
 const props = defineProps<{
   difficulty: number
@@ -14,24 +14,25 @@ const props = defineProps<{
 const emit = defineEmits(['update:difficulty'])
 
 const isHistoryExpanded = ref(false)
-const isHistoryHovered = ref(false)
-const isControlExpanded = ref(false)
-const isControlHovered = ref(false)
+const isControlExpanded = ref(true)
 
 const localDifficulty = ref(props.difficulty)
+watch(() => props.difficulty, (newVal) => {
+  localDifficulty.value = newVal
+})
+
 const updateDifficulty = () => emit('update:difficulty', localDifficulty.value)
 </script>
 
 <template>
-  <div>
-    <!-- 左侧：解算说明 -->
+  <div class="info-layout">
     <div class="interactive-sidebar left">
-      <div class="panel-group" @mouseenter="isHistoryHovered = true" @mouseleave="isHistoryHovered = false">
-        <div class="icon-trigger" :class="{ 'active-glow': isHistoryExpanded }" @click.stop="isHistoryExpanded = !isHistoryExpanded">
+      <div class="panel-group">
+        <div class="icon-trigger" :class="{ 'active-glow': isHistoryExpanded }" @click="isHistoryExpanded = !isHistoryExpanded">
           <span class="icon">ℹ️</span>
         </div>
         <Transition name="slide-fade" :style="{ '--offset': '-15px' }">
-          <div class="floating-panel left-aligned" v-show="isHistoryExpanded || isHistoryHovered">
+          <div class="floating-panel left-aligned" v-show="isHistoryExpanded">
             <div class="glass-card">
               <div class="card-header"><h2>解算说明</h2></div>
               <div class="card-body">
@@ -52,11 +53,10 @@ const updateDifficulty = () => emit('update:difficulty', localDifficulty.value)
       </div>
     </div>
 
-    <!-- 右侧：难度调节 -->
     <div class="interactive-sidebar right">
-      <div class="panel-group" @mouseenter="isControlHovered = true" @mouseleave="isControlHovered = false">
+      <div class="panel-group">
         <Transition name="slide-fade" :style="{ '--offset': '15px' }">
-          <div class="floating-panel right-aligned" v-show="isControlExpanded || isControlHovered">
+          <div class="floating-panel right-aligned" v-show="isControlExpanded">
             <div class="glass-card">
               <div class="card-header"><h3>难度调节</h3></div>
               <div class="slider-group">
@@ -72,7 +72,7 @@ const updateDifficulty = () => emit('update:difficulty', localDifficulty.value)
             </div>
           </div>
         </Transition>
-        <div class="icon-trigger" :class="{ 'active-glow': isControlExpanded }" @click.stop="isControlExpanded = !isControlExpanded">
+        <div class="icon-trigger" :class="{ 'active-glow': isControlExpanded }" @click="isControlExpanded = !isControlExpanded">
           <span class="icon">⚙️</span>
         </div>
       </div>
@@ -81,7 +81,7 @@ const updateDifficulty = () => emit('update:difficulty', localDifficulty.value)
 </template>
 
 <style scoped>
-.interactive-sidebar { position: absolute; top: 1.5rem; z-index: 200; }
+.interactive-sidebar { position: absolute; top: 1.5rem; z-index: 30; }
 .interactive-sidebar.left { left: 1.5rem; }
 .interactive-sidebar.right { right: 1.5rem; }
 
@@ -98,16 +98,13 @@ const updateDifficulty = () => emit('update:difficulty', localDifficulty.value)
 .glass-card {
   background: rgba(15, 23, 42, 0.7); backdrop-filter: blur(12px); border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 16px; padding: 1.5rem;
 }
-
-.card-header h2, .card-header h3 { color: #f1f5f9; margin-bottom: 1rem; font-size: 1.1rem; }
+.card-header h2, .card-header h3 { color: #f8fafc; margin: 0 0 1rem 0; font-size: 1.1rem; font-weight: 700; }
 
 .slider-group { margin-bottom: 1.2rem; }
 .slider-info { display: flex; justify-content: space-between; font-size: 0.8rem; color: #94a3b8; margin-bottom: 8px; }
-.slider-val { background: rgba(255,255,255,0.1); padding: 1px 6px; border-radius: 4px; font-family: monospace; color: #38bdf8; font-weight: 700; }
-.neon-slider { -webkit-appearance: none; width: 100%; height: 16px; background: transparent; outline: none; }
-.neon-slider::-webkit-slider-runnable-track { width: 100%; height: 4px; background: #334155; border-radius: 2px; }
-.neon-slider.blue::-webkit-slider-runnable-track { background: #3b82f6; }
-.neon-slider::-webkit-slider-thumb { -webkit-appearance: none; height: 14px; width: 14px; border-radius: 50%; background: #6366f1; cursor: pointer; border: 2px solid #fff; margin-top: -5px; box-shadow: 0 0 10px rgba(99, 102, 241, 0.4); }
+.slider-val { color: #818cf8; font-weight: 700; font-family: monospace; }
+.neon-slider { -webkit-appearance: none; width: 100%; height: 4px; background: #334155; border-radius: 2px; }
+.neon-slider::-webkit-slider-thumb { -webkit-appearance: none; width: 18px; height: 18px; border-radius: 50%; background: #6366f1; cursor: pointer; border: 3px solid #fff; }
 
 .slide-fade-enter-active, .slide-fade-leave-active { transition: all 0.3s ease-out; }
 .slide-fade-enter-from, .slide-fade-leave-to { transform: translateX(var(--offset)); opacity: 0; }
@@ -119,6 +116,6 @@ const updateDifficulty = () => emit('update:difficulty', localDifficulty.value)
 .dot.green { background: #10b981; box-shadow: 0 0 5px #10b981; }
 .dot.yellow { background: #fbbf24; box-shadow: 0 0 5px #fbbf24; }
 
-.desc-text { font-size: 0.85rem; color: #94a3b8; }
+.desc-text { font-size: 0.85rem; color: #cbd5e1; }
 .desc-list { font-size: 0.85rem; color: #94a3b8; padding-left: 1.2rem; margin: 0.5rem 0; }
 </style>
