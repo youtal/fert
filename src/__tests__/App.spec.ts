@@ -1,8 +1,10 @@
 /**
  * App.spec.ts
- * 
- * 根组件 App 的单元测试。
- * 主要验证应用挂载逻辑及基础布局组件的渲染。
+ *
+ * 该测试验证根组件级装配是否正常：
+ * 1. 路由上下文可被注入。
+ * 2. MainLayout 能随根组件一起挂载。
+ * 3. Sidebar 作为全局导航被正确渲染。
  */
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { mount } from '@vue/test-utils'

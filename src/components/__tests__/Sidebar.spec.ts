@@ -1,8 +1,10 @@
 /**
- * components/__tests__/Sidebar.spec.ts
- * 
- * 侧边栏组件单元测试。
- * 验证折叠状态切换、Logo 点击反馈及路由导航触发逻辑。
+ * Sidebar 组件测试。
+ *
+ * 这里重点覆盖导航层职责，而不是样式细节：
+ * 1. 文本与折叠态显示。
+ * 2. toggle 事件是否按预期发出。
+ * 3. 导航点击是否命中正确路由。
  */
 import { describe, it, expect, vi } from 'vitest'
 import { mount } from '@vue/test-utils'

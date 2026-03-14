@@ -1,10 +1,11 @@
 <script setup lang="ts">
 /**
- * Sidebar.vue (Final Fix)
- * 
- * 1. 修复 Tooltip 显示（通过移除 overflow:hidden）。
- * 2. 修复图标跳动（固定布局，不依赖弹性对齐变化）。
- * 3. 优化平滑动画。
+ * Sidebar.vue
+ *
+ * 全局导航组件，负责：
+ * 1. 呈现当前路由状态。
+ * 2. 提供展开 / 折叠能力。
+ * 3. 在折叠状态下提供图标 + Tooltip 的低占位导航方式。
  */
 import { useRouter, useRoute } from 'vue-router'
 import { ref } from 'vue'
@@ -18,10 +19,18 @@ const isLogoHovered = ref(false)
 
 type RoutePath = '/' | '/particles' | '/sudoku'
 
+/**
+ * 折叠状态下点击 Logo 代表“展开导航”，
+ * 展开状态下 Logo 只承担品牌展示，不重复绑定其它动作。
+ */
 const handleLogoClick = () => {
   if (props.isCollapsed) emit('toggle')
 }
 
+/**
+ * 跳转到目标页面。
+ * 这里使用受限联合类型，避免模板里写出未注册路由。
+ */
 const navigate = (path: RoutePath) => {
   router.push(path)
 }
@@ -47,6 +56,7 @@ const navigate = (path: RoutePath) => {
         </div>
       </div>
       
+      <!-- 展开状态下才显示显式折叠按钮，降低视觉噪音 -->
       <button v-if="!isCollapsed" class="collapse-btn" @click="$emit('toggle')">←</button>
     </div>
 

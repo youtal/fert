@@ -16,8 +16,8 @@ describe('Sudoku 核心算法测试', () => {
 
   it('应该能创建一个 9x9 的空网格', () => {
     expect(emptyGrid.length).toBe(9)
-    expect(emptyGrid[0].length).toBe(9)
-    expect(emptyGrid[0][0]).toBe(0)
+    expect(emptyGrid[0]?.length).toBe(9)
+    expect(emptyGrid[0]?.[0]).toBe(0)
   })
 
   describe('isValid 合法性检查', () => {
@@ -27,19 +27,19 @@ describe('Sudoku 核心算法测试', () => {
     })
 
     it('同一行不能有重复数字', () => {
-      emptyGrid[0][0] = 5
+      if (emptyGrid[0]) emptyGrid[0][0] = 5
       expect(Sudoku.isValid(emptyGrid, 0, 5, 5)).toBe(false)
       expect(Sudoku.isValid(emptyGrid, 0, 5, 6)).toBe(true)
     })
 
     it('同一列不能有重复数字', () => {
-      emptyGrid[0][0] = 5
+      if (emptyGrid[0]) emptyGrid[0][0] = 5
       expect(Sudoku.isValid(emptyGrid, 5, 0, 5)).toBe(false)
       expect(Sudoku.isValid(emptyGrid, 5, 0, 6)).toBe(true)
     })
 
     it('同一 3x3 宫格内不能有重复数字', () => {
-      emptyGrid[0][0] = 5
+      if (emptyGrid[0]) emptyGrid[0][0] = 5
       expect(Sudoku.isValid(emptyGrid, 1, 1, 5)).toBe(false)
       expect(Sudoku.isValid(emptyGrid, 2, 2, 5)).toBe(false)
       expect(Sudoku.isValid(emptyGrid, 2, 2, 6)).toBe(true)
@@ -61,7 +61,7 @@ describe('Sudoku 核心算法测试', () => {
       ]
       const solved = Sudoku.solve(partialGrid)
       expect(solved).toBe(true)
-      expect(partialGrid[0][0]).toBe(1)
+      expect(partialGrid[0]?.[0]).toBe(1)
     })
 
     it('应该能解出一个复杂的数独题目 (芬兰数学家设计的“世界最难数独”)', () => {
@@ -89,7 +89,7 @@ describe('Sudoku 核心算法测试', () => {
       let count = 0
       for (let r = 0; r < 9; r++) {
         for (let c = 0; c < 9; c++) {
-          if (puzzle[r][c] === 0) count++
+          if (puzzle[r]?.[c] === 0) count++
         }
       }
       expect(count).toBe(holes)
@@ -120,6 +120,24 @@ describe('Sudoku 核心算法测试', () => {
         [9, 1, 2, 0, 4, 5, 6, 7, 8] // 挖掉一个
       ]
       expect(Sudoku.countSolutions(nearComplete)).toBe(1)
+    })
+
+    it('冲突初盘不应被识别为合法唯一解', () => {
+      const invalidFilledGrid = [
+        [1, 1, 3, 4, 5, 6, 7, 8, 9],
+        [4, 5, 6, 7, 8, 9, 1, 2, 3],
+        [7, 8, 9, 1, 2, 3, 4, 5, 6],
+        [2, 3, 4, 5, 6, 7, 8, 9, 1],
+        [5, 6, 7, 8, 9, 1, 2, 3, 4],
+        [8, 9, 1, 2, 3, 4, 5, 6, 7],
+        [3, 4, 5, 6, 7, 8, 9, 1, 2],
+        [6, 7, 8, 9, 1, 2, 3, 4, 5],
+        [9, 2, 2, 3, 4, 5, 6, 7, 8]
+      ]
+
+      expect(Sudoku.validateInitialGrid(invalidFilledGrid)).toBe(false)
+      expect(Sudoku.countSolutions(invalidFilledGrid)).toBe(0)
+      expect(Sudoku.solve(invalidFilledGrid)).toBe(false)
     })
   })
 })

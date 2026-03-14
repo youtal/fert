@@ -1,8 +1,12 @@
 <script setup lang="ts">
 /**
  * App.vue
- * 
- * 应用程序根组件。
+ *
+ * 根组件只负责两件事：
+ * 1. 挂载全局布局。
+ * 2. 通过 KeepAlive 维持各个 view 的会话级连续状态。
+ *
+ * 这里不放业务状态，避免根组件变成跨模块逻辑入口。
  */
 import MainLayout from './layouts/MainLayout.vue'
 import { RouterView } from 'vue-router'
@@ -10,6 +14,7 @@ import { RouterView } from 'vue-router'
 
 <template>
   <MainLayout>
+    <!-- RouterView + KeepAlive 组合保证视图切换后实例仍然保留 -->
     <router-view v-slot="{ Component }">
       <keep-alive>
         <component :is="Component" />

@@ -1,9 +1,10 @@
 <script setup lang="ts">
 /**
  * ParticleView.vue
- * 
- * 粒子演化仿真主视图。
- * 已完成重构：将大型组件拆分为原子组件，增强可维护性。
+ *
+ * 生态系统视图只做编排：
+ * 1. 将状态面板、历史面板、控制面板布置在画布两侧。
+ * 2. 将鼠标事件转给 useEcosystem，避免组件层持有仿真逻辑。
  */
 import { useEcosystem } from '@/composables/useEcosystem'
 import EcosystemCanvas from '@/components/ecosystem/EcosystemCanvas.vue'
@@ -11,9 +12,12 @@ import EcosystemStatusPanel from '@/components/ecosystem/EcosystemStatusPanel.vu
 import EcosystemHistoryPanel from '@/components/ecosystem/EcosystemHistoryPanel.vue'
 import EcosystemControlPanel from '@/components/ecosystem/EcosystemControlPanel.vue'
 
-// 初始化物理仿真钩子，导出鼠标控制接口
+// useEcosystem 内部负责后台仿真与前台渲染分离。
 const { mouse, setRefs } = useEcosystem()
 
+/**
+ * 鼠标移动仅更新目标点，不直接操作粒子数组。
+ */
 const onMouseMove = (x: number, y: number) => {
   mouse.x = x
   mouse.y = y

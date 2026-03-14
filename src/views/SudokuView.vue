@@ -1,9 +1,11 @@
 <script setup lang="ts">
 /**
  * SudokuView.vue
- * 
- * 数独功能主视图。
- * 已完成重构：逻辑抽离至 useSudoku，界面拆分为原子组件。
+ *
+ * 数独视图承担模块装配职责：
+ * 1. 承接 useSudoku 暴露的状态与操作。
+ * 2. 将信息区、棋盘与控制面板组装成完整工作台。
+ * 3. 保持模板层无求解算法细节。
  */
 import { useSudoku } from '@/composables/useSudoku'
 import SudokuBoard from '@/components/sudoku/SudokuBoard.vue'

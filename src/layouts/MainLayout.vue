@@ -1,22 +1,20 @@
 <script setup lang="ts">
 /**
  * MainLayout.vue
- * 
- * 应用程序主布局组件。
- * 职责：
- * 1. 组合全局侧边栏导航。
- * 2. 提供响应式的内容展示区域，承载不同的 View 视图组件。
- * 3. 管理全局布局相关的 UI 状态（如侧边栏的展开/折叠）。
+ *
+ * 主布局负责统一应用的空间结构。
+ * 这里维护的状态只有布局级 UI 状态，例如侧边栏折叠与展开；
+ * 业务状态仍然由各自模块的 composable / store 负责。
  */
 import { ref } from 'vue'
 import Sidebar from '@/components/Sidebar.vue'
 
-// 局部响应式状态：管理侧边栏的折叠状态
-// 默认折叠以提供最大化内容展示空间
+// 默认折叠，让首次进入时的内容区域尽量完整。
 const isSidebarCollapsed = ref(true)
 
 /**
- * 切换侧边栏状态的开关函数
+ * 切换侧边栏状态。
+ * 该方法只影响布局，不应触发业务逻辑分支。
  */
 const toggleSidebar = () => {
   isSidebarCollapsed.value = !isSidebarCollapsed.value
@@ -25,7 +23,7 @@ const toggleSidebar = () => {
 
 <template>
   <div class="main-layout">
-    <!-- 侧边栏导航：传入折叠状态并监听切换请求 -->
+    <!-- 侧边栏导航：所有 view 共用同一套导航上下文 -->
     <Sidebar :is-collapsed="isSidebarCollapsed" @toggle="toggleSidebar" />
     
     <!-- 主内容区：使用 <main> 语义化标签 -->

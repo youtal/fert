@@ -8,7 +8,7 @@ import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest'
 import { mount } from '@vue/test-utils'
 import { useSudoku } from '../useSudoku'
 import { Sudoku } from '@/utils/sudoku'
-import { defineComponent } from 'vue'
+import { defineComponent, h, KeepAlive, nextTick, ref } from 'vue'
 
 describe('useSudoku (逻辑钩子) 测试', () => {
   const TestComponent = defineComponent({
@@ -61,6 +61,35 @@ describe('useSudoku (逻辑钩子) 测试', () => {
     expect(grid[r][c]).toBe(5)
   })
 
+  it('随机题目下用户输入应根据答案副本给出正确或错误反馈', () => {
+    const wrapper = mount(TestComponent)
+    const { grid, lockMask, solveType, selectCell, fillNumber } = wrapper.vm as any
+
+    let r = -1, c = -1
+    for (let i = 0; i < 9; i++) {
+      for (let j = 0; j < 9; j++) {
+        if (!lockMask[i][j]) {
+          r = i
+          c = j
+          break
+        }
+      }
+      if (r !== -1) break
+    }
+
+    const solvedGrid = grid.map((row: number[]) => [...row])
+    Sudoku.solve(solvedGrid)
+    const expectedValue = solvedGrid[r][c]
+    const wrongValue = expectedValue === 9 ? 1 : expectedValue + 1
+
+    selectCell(r, c)
+    fillNumber(wrongValue)
+    expect(solveType[r][c]).toBe(4)
+
+    fillNumber(expectedValue)
+    expect(solveType[r][c]).toBe(3)
+  })
+
   it('solveWithAnimation 应该能启动解算并最终填满网格', async () => {
     const wrapper = mount(TestComponent)
     const { grid, solveWithAnimation } = wrapper.vm as any
@@ -70,5 +99,45 @@ describe('useSudoku (逻辑钩子) 测试', () => {
     await solvePromise
 
     expect(Sudoku.validateFullGrid(grid)).toBe(true)
+  })
+
+  it('KeepAlive 切走后自动解算应继续进行并在恢复时保持进度', async () => {
+    const Child = defineComponent({
+      setup() {
+        return { ...useSudoku() }
+      },
+      template: '<div></div>'
+    })
+
+    const Parent = defineComponent({
+      setup() {
+        const show = ref(true)
+        return { show }
+      },
+      render() {
+        return h(KeepAlive, null, [this.show ? h(Child) : null])
+      }
+    })
+
+    const wrapper = mount(Parent)
+    const child = wrapper.findComponent(Child)
+    const vm = child.vm as any
+
+    vm.solveSpeed = 10
+    const solvePromise = vm.solveWithAnimation()
+
+    await vi.advanceTimersByTimeAsync(50)
+    wrapper.vm.show = false
+    await nextTick()
+
+    await vi.runAllTimersAsync()
+    await solvePromise
+
+    wrapper.vm.show = true
+    await nextTick()
+
+    const resumed = wrapper.findComponent(Child).vm as any
+    expect(Sudoku.validateFullGrid(resumed.grid)).toBe(true)
+    expect(resumed.isSolving).toBe(false)
   })
 })

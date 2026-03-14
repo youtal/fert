@@ -1,8 +1,8 @@
 /**
- * views/__tests__/DashboardView.spec.ts
- * 
- * 仪表盘视图单元测试。
- * 验证静态卡片及关键统计指标的正确显示。
+ * DashboardView 测试。
+ *
+ * 由于该页面当前是静态说明页，
+ * 所以测试目标是防止展示文案和关键卡片结构被误删。
  */
 import { describe, it, expect } from 'vitest'
 import { mount } from '@vue/test-utils'

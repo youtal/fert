@@ -8,7 +8,7 @@ import { Sudoku, type SudokuGrid } from '@/utils/sudoku'
 
 export function useSudoku() {
   const grid = ref<SudokuGrid>(Sudoku.createEmptyGrid())
-  const referenceSolution = ref<SudokuGrid | null>(null) 
+  const solutionSnapshot = ref<SudokuGrid | null>(null) 
   
   // solveType: 0=题目(白), 1=解算结果(绿), 2=回溯中(黄), 3=用户正确(绿), 4=用户错误(红)
   const solveType = ref<number[][]>(Array.from({ length: 9 }, () => Array(9).fill(0)))
@@ -22,31 +22,48 @@ export function useSudoku() {
   const validationStep = ref(-1)
   const isSuccess = ref(true)
   const solveSpeed = ref(50)
+  let solveRunId = 0
 
-  const animationStepHook = async (r: number, c: number, v: number, type: 'logic' | 'backtrack') => {
+  const setCell = (row: number, col: number, value: number) => {
+    const rowValues = grid.value[row]
+    if (!rowValues) return
+    rowValues[col] = value
+  }
+  const setSolveType = (row: number, col: number, value: number) => {
+    const rowValues = solveType.value[row]
+    if (!rowValues) return
+    rowValues[col] = value
+  }
+  const getLock = (row: number, col: number) => lockMask.value[row]?.[col] ?? false
+
+  const animationStepHook = async (runId: number, r: number, c: number, v: number, type: 'logic' | 'backtrack') => {
+    if (runId !== solveRunId) return
     if (solveSpeed.value > 0) {
-      grid.value[r][c] = v
-      solveType.value[r][c] = (v === 0 ? 0 : (type === 'logic' ? 1 : 2))
+      setCell(r, c, v)
+      setSolveType(r, c, v === 0 ? 0 : (type === 'logic' ? 1 : 2))
       selectedCell.row = r; selectedCell.col = c
       await new Promise(resolve => setTimeout(resolve, solveSpeed.value))
     }
   }
 
-  const runValidationAnimation = async () => {
+  const runValidationAnimation = async (runId: number) => {
+    if (runId !== solveRunId) return
     isSuccess.value = Sudoku.validateFullGrid(grid.value)
     isValidating.value = true
     selectedCell.row = -1; selectedCell.col = -1
     for (let i = 0; i < 9; i++) {
+      if (runId !== solveRunId) return
       validationStep.value = i
       await new Promise(resolve => setTimeout(resolve, 150))
     }
     await new Promise(resolve => setTimeout(resolve, 300))
+    if (runId !== solveRunId) return
     if (!isSuccess.value) {
       alert('验证失败：盘面存在冲突或未填满！')
     } else {
       for (let r = 0; r < 9; r++) {
         for (let c = 0; c < 9; c++) {
-          if (solveType.value[r][c] === 2) solveType.value[r][c] = 1
+          if (solveType.value[r]?.[c] === 2) setSolveType(r, c, 1)
         }
       }
     }
@@ -60,13 +77,20 @@ export function useSudoku() {
       alert('请先点击“确认题目”后再进行自动解算。')
       return
     }
+    const maskState = Sudoku.initializeMasks(grid.value)
+    if (!maskState) {
+      alert('该布局无解！')
+      return
+    }
     isSolving.value = true
-    const { rows, cols, blocks } = Sudoku.initializeMasks(grid.value)
-    await Sudoku.propagateConstraints(grid.value, rows, cols, blocks, animationStepHook)
-    const success = await Sudoku.backtrackWithMasks(grid.value, rows, cols, blocks, animationStepHook)
+    const runId = ++solveRunId
+    const { rows, cols, blocks } = maskState
+    await Sudoku.propagateConstraints(grid.value, rows, cols, blocks, (r, c, v, type) => animationStepHook(runId, r, c, v, type))
+    const success = await Sudoku.backtrackWithMasks(grid.value, rows, cols, blocks, (r, c, v, type) => animationStepHook(runId, r, c, v, type))
+    if (runId !== solveRunId) return
     isSolving.value = false
     selectedCell.row = -1; selectedCell.col = -1
-    if (success) await runValidationAnimation()
+    if (success) await runValidationAnimation(runId)
     else alert('该布局无解！')
   }
 
@@ -74,29 +98,36 @@ export function useSudoku() {
     if (isSolving.value || isValidating.value || selectedCell.row === -1) return
     const r = selectedCell.row, c = selectedCell.col
     if (isSettingUp.value) {
-      if (num === 0) { grid.value[r][c] = 0; return }
+      if (num === 0) { setCell(r, c, 0); return }
       if (!Sudoku.isValid(grid.value, r, c, num)) {
         alert(`题目冲突：在当前位置填入 ${num} 会导致题目本身不合法！`)
         return
       }
-      grid.value[r][c] = num; return
+      setCell(r, c, num); return
     }
-    if (lockMask.value[r][c]) return 
-    grid.value[r][c] = num
-    if (referenceSolution.value) {
-      const correctVal = referenceSolution.value[r][c]
-      solveType.value[r][c] = (num === 0 ? 0 : (num === correctVal ? 3 : 4))
+    if (getLock(r, c)) return 
+    setCell(r, c, num)
+    if (solutionSnapshot.value) {
+      const correctVal = solutionSnapshot.value[r]?.[c]
+      setSolveType(r, c, num === 0 ? 0 : (num === correctVal ? 3 : 4))
     }
   }
 
   const confirmCustomPuzzle = () => {
+    if (!Sudoku.validateInitialGrid(grid.value)) {
+      alert('题目校验失败：该布局存在冲突！')
+      return
+    }
     const solCount = Sudoku.countSolutions(grid.value)
     if (solCount === 0) alert('题目校验失败：该布局无解！')
     else if (solCount > 1) alert('题目校验失败：该布局存在多个解！')
     else {
       const tempGrid = grid.value.map(r => [...r])
-      Sudoku.solve(tempGrid)
-      referenceSolution.value = tempGrid
+      if (!Sudoku.solve(tempGrid)) {
+        alert('题目校验失败：该布局无解！')
+        return
+      }
+      solutionSnapshot.value = tempGrid.map((row) => [...row])
       lockMask.value = grid.value.map(r => r.map(cell => cell !== 0))
       solveType.value = grid.value.map(r => r.map(() => 0))
       isSettingUp.value = false
@@ -105,16 +136,25 @@ export function useSudoku() {
   }
 
   const generateNewPuzzle = () => {
+    solveRunId++
+    isSolving.value = false
+    isValidating.value = false
+    validationStep.value = -1
     isSettingUp.value = false
     const { puzzle, solution } = Sudoku.generatePuzzle(difficulty.value)
-    grid.value = puzzle; referenceSolution.value = solution
+    grid.value = puzzle
+    solutionSnapshot.value = solution.map((row) => [...row])
     lockMask.value = puzzle.map(r => r.map(cell => cell !== 0))
     solveType.value = Array.from({ length: 9 }, () => Array(9).fill(0))
     selectedCell.row = -1; selectedCell.col = -1
   }
 
   const clearAll = () => {
-    grid.value = Sudoku.createEmptyGrid(); referenceSolution.value = null
+    solveRunId++
+    isSolving.value = false
+    isValidating.value = false
+    validationStep.value = -1
+    grid.value = Sudoku.createEmptyGrid(); solutionSnapshot.value = null
     lockMask.value = Array.from({ length: 9 }, () => Array(9).fill(false))
     solveType.value = Array.from({ length: 9 }, () => Array(9).fill(0))
     isSettingUp.value = true 

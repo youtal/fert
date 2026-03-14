@@ -1,8 +1,8 @@
 /**
- * views/__tests__/SudokuView.spec.ts
- * 
- * 数独视图组件测试。
- * 已同步最新的组件结构和原始类名 (.board-cell, .is-selected)。
+ * SudokuView 组件测试。
+ *
+ * 该文件刻意 mock 掉数独算法生成逻辑，
+ * 只关心视图装配、交互事件转发和基础结构渲染。
  */
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { mount } from '@vue/test-utils'

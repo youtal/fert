@@ -1,8 +1,8 @@
 /**
- * views/__tests__/ParticleView.spec.ts
- * 
- * 粒子演化视图集成测试。
- * 验证 Canvas 挂载、交互面板切换、以及 UI 与 Pinia 状态库的双向绑定。
+ * ParticleView 集成测试。
+ *
+ * 这里通过 mock useEcosystem 隔离真实仿真，
+ * 专注验证视图层对左右面板和 store 数据的编排是否正确。
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { mount } from '@vue/test-utils'

@@ -8,7 +8,7 @@ import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { SpatialHash, Particle, Predator, CONFIG } from '../Ecosystem'
 
 describe('SpatialHash (空间哈希) 测试', () => {
-  let hash: SpatialHash
+  let hash: SpatialHash<{ x: number; y: number }>
   const cellSize = 100
 
   beforeEach(() => {

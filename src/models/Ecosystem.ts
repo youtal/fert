@@ -14,8 +14,13 @@
  * 逻辑：将二维空间划分为网格，通过实体的坐标计算其所属网格键值，实现常数时间内的网格插入与检索。
  * 计算复杂度：邻域搜索从 $O(n^2)$ 降低至 $O(n)$。
  */
-export class SpatialHash {
-  cells: Map<string, any[]> = new Map();
+interface PositionedObject {
+  x: number
+  y: number
+}
+
+export class SpatialHash<T extends PositionedObject> {
+  cells: Map<string, T[]> = new Map();
   cellSize: number;
 
   constructor(cellSize: number) {
@@ -37,7 +42,7 @@ export class SpatialHash {
   /**
    * 将实体插入对应网格
    */
-  insert(obj: any) {
+  insert(obj: T) {
     const key = this.getKey(obj.x, obj.y);
     if (!this.cells.has(key)) this.cells.set(key, []);
     this.cells.get(key)!.push(obj);
@@ -47,10 +52,10 @@ export class SpatialHash {
    * 获取目标点周围 3x3 范围内的所有实体
    * 这覆盖了感知半径内所有可能的交互对象
    */
-  getNearby(x: number, y: number): any[] {
+  getNearby(x: number, y: number): T[] {
     const col = Math.floor(x / this.cellSize);
     const row = Math.floor(y / this.cellSize);
-    const nearby: any[] = [];
+    const nearby: T[] = [];
     
     // 遍历自身网格及相邻的 8 个网格
     for (let i = -1; i <= 1; i++) {

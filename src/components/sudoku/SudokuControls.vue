@@ -1,9 +1,10 @@
 <script setup lang="ts">
 /**
  * components/sudoku/SudokuControls.vue
- * 
- * 数独控制面板组件。
- * 恢复了原始的样式定义。
+ *
+ * 数独控制面板。
+ * 职责是发出用户操作事件，而不是直接读写棋盘数据。
+ * 这样可以保证所有业务分支都收口到 useSudoku 中处理。
  */
 import { ref, watch } from 'vue'
 
@@ -18,11 +19,15 @@ const emit = defineEmits([
   'fill', 'update:solveSpeed', 'solve', 'generate', 'clear', 'confirm'
 ])
 
+// 本地镜像值让滑块拖动更顺滑，并维持受控组件语义。
 const localSolveSpeed = ref(props.solveSpeed)
 watch(() => props.solveSpeed, (newVal) => {
   localSolveSpeed.value = newVal
 })
 
+/**
+ * 将本地滑块值同步回父级。
+ */
 const updateSpeed = () => emit('update:solveSpeed', localSolveSpeed.value)
 </script>
 

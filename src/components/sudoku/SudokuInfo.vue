@@ -1,9 +1,12 @@
 <script setup lang="ts">
 /**
  * components/sudoku/SudokuInfo.vue
- * 
- * 专门负责数独面板的说明、图例以及难度调节逻辑。
- * 恢复了原始的样式、图例颜色与内容。
+ *
+ * 数独视图的悬浮信息区与难度调节区。
+ * 行为与生态系统面板保持一致：
+ * 1. 默认折叠。
+ * 2. 悬浮时临时展开。
+ * 3. 点击图标切换常驻展开状态。
  */
 import { ref, watch } from 'vue'
 
@@ -14,7 +17,9 @@ const props = defineProps<{
 const emit = defineEmits(['update:difficulty'])
 
 const isHistoryExpanded = ref(false)
-const isControlExpanded = ref(true)
+const isHistoryHovered = ref(false)
+const isControlExpanded = ref(false)
+const isControlHovered = ref(false)
 
 const localDifficulty = ref(props.difficulty)
 watch(() => props.difficulty, (newVal) => {
@@ -27,12 +32,20 @@ const updateDifficulty = () => emit('update:difficulty', localDifficulty.value)
 <template>
   <div class="info-layout">
     <div class="interactive-sidebar left">
-      <div class="panel-group">
-        <div class="icon-trigger" :class="{ 'active-glow': isHistoryExpanded }" @click="isHistoryExpanded = !isHistoryExpanded">
+      <div
+        class="panel-group"
+        @mouseenter="isHistoryHovered = true"
+        @mouseleave="isHistoryHovered = false"
+      >
+        <div
+          class="icon-trigger"
+          :class="{ 'active-glow': isHistoryExpanded }"
+          @click.stop="isHistoryExpanded = !isHistoryExpanded"
+        >
           <span class="icon">ℹ️</span>
         </div>
         <Transition name="slide-fade" :style="{ '--offset': '-15px' }">
-          <div class="floating-panel left-aligned" v-show="isHistoryExpanded">
+          <div class="floating-panel left-aligned" v-show="isHistoryExpanded || isHistoryHovered">
             <div class="glass-card">
               <div class="card-header"><h2>解算说明</h2></div>
               <div class="card-body">
@@ -54,9 +67,13 @@ const updateDifficulty = () => emit('update:difficulty', localDifficulty.value)
     </div>
 
     <div class="interactive-sidebar right">
-      <div class="panel-group">
+      <div
+        class="panel-group"
+        @mouseenter="isControlHovered = true"
+        @mouseleave="isControlHovered = false"
+      >
         <Transition name="slide-fade" :style="{ '--offset': '15px' }">
-          <div class="floating-panel right-aligned" v-show="isControlExpanded">
+          <div class="floating-panel right-aligned" v-show="isControlExpanded || isControlHovered">
             <div class="glass-card">
               <div class="card-header"><h3>难度调节</h3></div>
               <div class="slider-group">
@@ -72,7 +89,11 @@ const updateDifficulty = () => emit('update:difficulty', localDifficulty.value)
             </div>
           </div>
         </Transition>
-        <div class="icon-trigger" :class="{ 'active-glow': isControlExpanded }" @click="isControlExpanded = !isControlExpanded">
+        <div
+          class="icon-trigger"
+          :class="{ 'active-glow': isControlExpanded }"
+          @click.stop="isControlExpanded = !isControlExpanded"
+        >
           <span class="icon">⚙️</span>
         </div>
       </div>
@@ -81,17 +102,21 @@ const updateDifficulty = () => emit('update:difficulty', localDifficulty.value)
 </template>
 
 <style scoped>
-.interactive-sidebar { position: absolute; top: 1.5rem; z-index: 30; }
+.interactive-sidebar { position: absolute; top: 1.5rem; z-index: 200; }
 .interactive-sidebar.left { left: 1.5rem; }
 .interactive-sidebar.right { right: 1.5rem; }
+
+.panel-group { position: relative; display: flex; align-items: flex-start; }
 
 .icon-trigger {
   width: 52px; height: 52px; background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.08); border-radius: 14px;
   display: flex; align-items: center; justify-content: center; cursor: pointer; transition: all 0.3s; font-size: 1.4rem;
+  position: relative; z-index: 2; user-select: none;
 }
+.icon-trigger:hover { background: rgba(255, 255, 255, 0.08); transform: scale(1.05); }
 .active-glow { background: rgba(255, 255, 255, 0.12); border-color: rgba(99, 102, 241, 0.4); }
 
-.floating-panel { position: absolute; top: 0; width: 280px; }
+.floating-panel { position: absolute; top: 0; width: 280px; z-index: 1; }
 .floating-panel.left-aligned { left: 64px; }
 .floating-panel.right-aligned { right: 64px; }
 

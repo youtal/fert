@@ -1,8 +1,13 @@
 <script setup lang="ts">
 /**
  * components/ecosystem/EcosystemCanvas.vue
- * 
- * 专门负责 Canvas 渲染容器及其事件桥接。
+ *
+ * 画布容器组件。
+ * 只负责：
+ * 1. 暴露 canvas / container 引用给上层。
+ * 2. 将鼠标坐标转换为画布局部坐标。
+ *
+ * 这里不直接持有仿真状态，避免渲染层与计算层耦合。
  */
 import { ref, onMounted } from 'vue'
 
@@ -16,9 +21,14 @@ const emit = defineEmits<{
 }>()
 
 onMounted(() => {
+  // 组件挂载后再把真实 DOM ref 交给 composable 初始化。
   emit('init', canvasRef, containerRef)
 })
 
+/**
+ * 将浏览器窗口坐标转换为 canvas 内部坐标，
+ * 供上层转化为粒子的引导目标点。
+ */
 const onMouseMove = (e: MouseEvent) => {
   if (!canvasRef.value) return
   const rect = canvasRef.value.getBoundingClientRect()

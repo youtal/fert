@@ -28,12 +28,16 @@ const isInBlock = (r: number, c: number, blockIdx: number) => {
 }
 
 const getHighlightClass = (r: number, c: number) => {
+  const selectedValue = props.selectedCell.row !== -1 && props.selectedCell.col !== -1
+    ? (props.grid[props.selectedCell.row]?.[props.selectedCell.col] ?? 0)
+    : 0
   const isSelected = props.selectedCell.row === r && props.selectedCell.col === c
   const isSameRow = props.selectedCell.row !== -1 && props.selectedCell.row === r
   const isSameCol = props.selectedCell.col !== -1 && props.selectedCell.col === c
   const isSameBlock = props.selectedCell.row !== -1 && 
                       Math.floor(props.selectedCell.row / 3) === Math.floor(r / 3) && 
                       Math.floor(props.selectedCell.col / 3) === Math.floor(c / 3)
+  const isSameNumber = selectedValue !== 0 && !isSelected && props.grid[r]?.[c] === selectedValue
 
   const inValidationScan = props.isValidating && (
     r === props.validationStep || 
@@ -47,9 +51,12 @@ const getHighlightClass = (r: number, c: number) => {
   return {
     'is-selected': isSelected,
     'is-related': !isSelected && (isSameRow || isSameCol || isSameBlock),
+    'is-same-number': isSameNumber,
     'is-fixed': fixed,
     'is-logic': type === 1,
     'is-backtrack': type === 2,
+    'is-user-correct': type === 3,
+    'is-user-error': type === 4,
     'is-validating': inValidationScan, 
     'is-error': props.isValidating && !props.isSuccess && inValidationScan,
     'border-right': (c + 1) % 3 === 0 && c < 8,
@@ -118,12 +125,23 @@ const getHighlightClass = (r: number, c: number) => {
   border: 1px solid rgba(71, 85, 105, 0.2);
   cursor: pointer; transition: all 0.1s;
   position: relative;
+  user-select: none;
+  caret-color: transparent;
+  outline: none;
 }
 
 /* 颜色定义 */
 .board-cell.is-fixed { color: #f8fafc; }     /* 题目: 白色 */
 .board-cell.is-logic { color: #10b981; }     /* 逻辑: 绿色 */
 .board-cell.is-backtrack { color: #fbbf24; } /* 回溯: 黄色 */
+.board-cell.is-user-correct {
+  color: #34d399;
+  text-shadow: 0 0 14px rgba(52, 211, 153, 0.95);
+}
+.board-cell.is-user-error {
+  color: #f87171;
+  text-shadow: 0 0 14px rgba(248, 113, 113, 0.95);
+}
 
 .board-cell.is-selected {
   background: rgba(99, 102, 241, 0.4) !important;
@@ -133,6 +151,13 @@ const getHighlightClass = (r: number, c: number) => {
 }
 
 .board-cell.is-related { background: rgba(255, 255, 255, 0.04); }
+.board-cell.is-same-number {
+  color: #fef08a;
+  text-shadow:
+    0 0 10px rgba(254, 240, 138, 0.95),
+    0 0 18px rgba(250, 204, 21, 0.75);
+  filter: brightness(1.15);
+}
 
 .board-cell.is-validating {
   background: rgba(16, 185, 129, 0.25) !important;

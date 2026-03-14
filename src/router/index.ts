@@ -1,8 +1,8 @@
 /**
  * router/index.ts
- * 
- * 路由配置文件。
- * 定义了控制台与粒子演化的导航映射。
+ *
+ * 路由层只声明导航映射，不承载权限、懒加载或数据预取逻辑。
+ * 当前项目的三张主页面都依赖 KeepAlive 保留运行时状态。
  */
 import { createRouter, createWebHistory } from 'vue-router'
 import DashboardView from '@/views/DashboardView.vue'
@@ -10,7 +10,7 @@ import ParticleView from '@/views/ParticleView.vue'
 import SudokuView from '@/views/SudokuView.vue'
 
 const router = createRouter({
-  // 使用 HTML5 历史模式
+  // 使用 HTML5 历史模式，保证地址栏与页面状态同步。
   history: createWebHistory(import.meta.env.BASE_URL),
   routes: [
     {
