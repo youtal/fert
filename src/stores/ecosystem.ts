@@ -29,6 +29,10 @@ export interface EcosystemParams {
   minSpacing: number
 }
 
+/**
+ * 单一可信默认参数源。
+ * UI 重置、运行时钳制和测试断言都应以这里为准，避免魔法数字分散。
+ */
 const DEFAULT_PARAMS: EcosystemParams = {
   n: 8,
   m: 4,
@@ -36,6 +40,10 @@ const DEFAULT_PARAMS: EcosystemParams = {
   minSpacing: 35,
 }
 
+/**
+ * 参数允许范围。
+ * 与滑块范围保持一致，但 store 仍保留最终兜底，防止外部直接写入越界值。
+ */
 const PARAM_RANGES = {
   n: { min: 2, max: 15 },
   m: { min: 0, max: 20 },
@@ -43,6 +51,10 @@ const PARAM_RANGES = {
   minSpacing: { min: 10, max: 100 },
 } as const
 
+/**
+ * 将任意输入压缩为安全整数。
+ * 仿真循环只消费经过此函数处理后的值，确保时间参数和间距参数始终可预测。
+ */
 const clampParam = (
   value: number,
   fallback: number,

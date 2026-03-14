@@ -3,6 +3,7 @@
  * components/ecosystem/EcosystemHistoryPanel.vue
  * 
  * 展示灭绝历史记录的浮动面板。
+ * 仅当历史日志存在时渲染入口，避免空态图标长期占据视线。
  */
 import { ref } from 'vue'
 import { useEcosystemStore } from '@/stores/ecosystem'

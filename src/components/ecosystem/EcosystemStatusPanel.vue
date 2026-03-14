@@ -3,11 +3,13 @@
  * components/ecosystem/EcosystemStatusPanel.vue
  * 
  * 展示演化状态的浮动面板。
+ * 数据完全来自 store，因此它天然能反映后台持续运行的状态。
  */
 import { ref } from 'vue'
 import { useEcosystemStore } from '@/stores/ecosystem'
 
 const store = useEcosystemStore()
+// 与其他浮层保持一致：点击锁定展开，悬浮临时展开。
 const isExpanded = ref(false)
 const isHovered = ref(false)
 </script>

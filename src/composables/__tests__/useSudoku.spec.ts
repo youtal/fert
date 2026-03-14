@@ -6,7 +6,7 @@
  */
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest'
 import { mount } from '@vue/test-utils'
-import { useSudoku } from '../useSudoku'
+import { getSolveStepFrequency, useSudoku } from '../useSudoku'
 import { Sudoku } from '@/utils/sudoku'
 import { defineComponent, h, KeepAlive, nextTick, ref } from 'vue'
 
@@ -20,10 +20,54 @@ describe('useSudoku (逻辑钩子) 测试', () => {
 
   beforeEach(() => {
     vi.useFakeTimers()
+
+    class FakeAudioParam {
+      setValueAtTime() {}
+      exponentialRampToValueAtTime() {}
+    }
+
+    class FakeGainNode {
+      gain = new FakeAudioParam()
+      connect() {}
+    }
+
+    class FakeOscillatorNode {
+      type: OscillatorType = 'sine'
+      frequency = new FakeAudioParam()
+      connect() {}
+      start() {}
+      stop() {}
+    }
+
+    class FakeAudioContext {
+      state = 'running'
+      currentTime = 0
+      destination = {}
+      resume = vi.fn(async () => {})
+      close = vi.fn(async () => {})
+      createOscillator() {
+        return new FakeOscillatorNode() as unknown as OscillatorNode
+      }
+      createGain() {
+        return new FakeGainNode() as unknown as GainNode
+      }
+    }
+
+    Object.defineProperty(window, 'AudioContext', {
+      configurable: true,
+      writable: true,
+      value: FakeAudioContext,
+    })
   })
 
   afterEach(() => {
     vi.useRealTimers()
+    Reflect.deleteProperty(window, 'AudioContext')
+  })
+
+  it('解算音调应随着剩余空格减少而升高', () => {
+    expect(getSolveStepFrequency(80)).toBeLessThan(getSolveStepFrequency(40))
+    expect(getSolveStepFrequency(40)).toBeLessThan(getSolveStepFrequency(0))
   })
 
   it('初始化时应生成一个新题目', () => {

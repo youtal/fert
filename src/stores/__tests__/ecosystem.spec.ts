@@ -46,6 +46,7 @@ describe('Ecosystem Store (状态管理) 测试', () => {
 
   it('添加日志时应保持最多 5 条记录的上限', () => {
     const store = useEcosystemStore()
+    // 用工厂函数表达日志结构，避免测试被无关字段噪音淹没。
     const createLog = (id: number) => ({
       id,
       uptime: id * 10,

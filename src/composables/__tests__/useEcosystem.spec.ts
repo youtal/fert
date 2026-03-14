@@ -22,6 +22,7 @@ describe('useEcosystem', () => {
     setActivePinia(createPinia())
     vi.useFakeTimers()
     vi.setSystemTime(new Date('2026-03-14T00:00:00Z'))
+    // 用 timeout 模拟 RAF，便于在 fake timers 下精确验证“渲染停、仿真不停”的时序。
     vi.stubGlobal('requestAnimationFrame', (callback: FrameRequestCallback) => {
       return setTimeout(() => callback(performance.now()), 16) as unknown as number
     })

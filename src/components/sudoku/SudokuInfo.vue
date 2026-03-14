@@ -16,16 +16,23 @@ const props = defineProps<{
 
 const emit = defineEmits(['update:difficulty'])
 
+// 左侧说明面板：点击锁定、悬浮预览。
 const isHistoryExpanded = ref(false)
 const isHistoryHovered = ref(false)
+// 右侧难度面板：点击锁定、悬浮预览。
 const isControlExpanded = ref(false)
 const isControlHovered = ref(false)
 
+// 本地镜像让滑块在拖动过程中更顺滑，同时继续保持受控组件语义。
 const localDifficulty = ref(props.difficulty)
 watch(() => props.difficulty, (newVal) => {
   localDifficulty.value = newVal
 })
 
+/**
+ * 将本地难度值同步回父组件。
+ * 真正的题目生成时机仍由父组件决定，信息面板只发出参数变更。
+ */
 const updateDifficulty = () => emit('update:difficulty', localDifficulty.value)
 </script>
 

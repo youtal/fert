@@ -15,6 +15,7 @@ const emit = defineEmits(['toggle'])
 
 const router = useRouter()
 const route = useRoute()
+// 折叠状态下仅在 hover 时切换 Logo 图标，避免常态视觉噪音。
 const isLogoHovered = ref(false)
 
 type RoutePath = '/' | '/particles' | '/sudoku'

@@ -12,6 +12,7 @@ describe('SpatialHash (空间哈希) 测试', () => {
   const cellSize = 100
 
   beforeEach(() => {
+    // 每个用例都重建哈希，避免上一个用例的插入结果残留在 cells 中。
     hash = new SpatialHash(cellSize)
   })
 

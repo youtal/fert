@@ -9,6 +9,10 @@ import DashboardView from '@/views/DashboardView.vue'
 import ParticleView from '@/views/ParticleView.vue'
 import SudokuView from '@/views/SudokuView.vue'
 
+/**
+ * 路由表保持显式静态导入：
+ * 当前页面数量很少，而 KeepAlive 又要求实例生命周期连续，没必要为了懒加载拆散语义。
+ */
 const router = createRouter({
   // 使用 HTML5 历史模式，保证地址栏与页面状态同步。
   history: createWebHistory(import.meta.env.BASE_URL),

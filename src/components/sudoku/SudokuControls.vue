@@ -27,6 +27,7 @@ watch(() => props.solveSpeed, (newVal) => {
 
 /**
  * 将本地滑块值同步回父级。
+ * 父级仍是唯一真实状态源，这里只处理拖动过程中的过渡体验。
  */
 const updateSpeed = () => emit('update:solveSpeed', localSolveSpeed.value)
 </script>

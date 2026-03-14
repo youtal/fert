@@ -23,10 +23,18 @@ const emit = defineEmits<{
   (e: 'select', row: number, col: number): void
 }>()
 
+/**
+ * 判断某格是否位于给定 3x3 宫。
+ * 校验动画会重用这套逻辑做“行 / 列 / 宫”扫描高亮。
+ */
 const isInBlock = (r: number, c: number, blockIdx: number) => {
   return Math.floor(r / 3) * 3 + Math.floor(c / 3) === blockIdx
 }
 
+/**
+ * 汇总单元格所有视觉状态 class。
+ * 这个函数集中处理选中态、关联态、数字高亮、解算颜色和校验扫描态，避免模板充满条件判断。
+ */
 const getHighlightClass = (r: number, c: number) => {
   const selectedValue = props.selectedCell.row !== -1 && props.selectedCell.col !== -1
     ? (props.grid[props.selectedCell.row]?.[props.selectedCell.col] ?? 0)

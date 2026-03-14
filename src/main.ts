@@ -14,7 +14,7 @@ import { createPinia } from 'pinia'
 import App from './App.vue'
 import router from './router'
 
-// 创建 Vue 应用实例，入口组件为 App.vue
+// 创建 Vue 应用实例，后续所有插件都绑定到这一个根实例上。
 const app = createApp(App)
 
 // 注册 Pinia 插件，实现全局响应式状态共享

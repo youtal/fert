@@ -1,3 +1,9 @@
+/**
+ * SudokuInfo 组件测试。
+ *
+ * 重点保证两个浮层的交互契约一致：
+ * 默认折叠、悬浮预览、点击锁定。
+ */
 import { describe, it, expect } from 'vitest'
 import { mount } from '@vue/test-utils'
 import { nextTick } from 'vue'

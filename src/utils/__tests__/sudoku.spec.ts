@@ -11,6 +11,7 @@ describe('Sudoku 核心算法测试', () => {
   let emptyGrid: SudokuGrid
 
   beforeEach(() => {
+    // 每个用例都从全新空棋盘开始，避免求解逻辑的原地写入污染后续断言。
     emptyGrid = Sudoku.createEmptyGrid()
   })
 

@@ -11,7 +11,9 @@
  */
 import { ref, onMounted } from 'vue'
 
+// 真实 canvas DOM 引用，由 useEcosystem 接管后参与尺寸同步与绘制。
 const canvasRef = ref<HTMLCanvasElement | null>(null)
+// 外层容器 DOM 引用，用于响应式读取可用尺寸。
 const containerRef = ref<HTMLDivElement | null>(null)
 
 const emit = defineEmits<{

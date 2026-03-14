@@ -3,12 +3,15 @@
  * components/ecosystem/EcosystemControlPanel.vue
  * 
  * 演化参数控制面板。
+ * 这里只负责改写 store 中的参数，不感知任何仿真推进细节。
  */
 import { ref } from 'vue'
 import { useEcosystemStore } from '@/stores/ecosystem'
 
 const store = useEcosystemStore()
+// 点击后锁定展开，便于长时间拖动滑块。
 const isExpanded = ref(false)
+// 悬浮时临时展开，离开后恢复。
 const isHovered = ref(false)
 </script>
 

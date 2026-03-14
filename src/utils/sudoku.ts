@@ -13,14 +13,22 @@ type MaskState = {
   blocks: Uint16Array
 }
 
+// 9 个候选数字都可用时的位掩码：二进制 111111111。
 const FULL_MASK = 0x1ff
 
+// 计算单元格所属的 3x3 宫索引，范围为 0-8。
 const getBlockIndex = (row: number, col: number) => Math.floor(row / 3) * 3 + Math.floor(col / 3)
 
+// 对行访问做一层显式封装，便于集中处理潜在的越界防御。
 const getRow = (grid: SudokuGrid, row: number) => grid[row]
 
+// 在需要“试算”时复制棋盘，避免原地修改调用方状态。
 const cloneGrid = (grid: SudokuGrid): SudokuGrid => grid.map((row) => [...row])
 
+/**
+ * 统计 bitmask 中可用候选的数量。
+ * 该函数用于 MRV（最少剩余值）启发式，以优先选择候选最少的空格。
+ */
 const countBits = (value: number) => {
   let count = 0
   let current = value
@@ -31,14 +39,18 @@ const countBits = (value: number) => {
   return count
 }
 
+// 输入应当是单 bit 值，将其转回 1-9 的真实数字。
 const firstCandidateValue = (bitmask: number) => Math.log2(bitmask) + 1
 
+// 判断候选集合是否恰好只剩一个数字。
 const isSingleCandidate = (bitmask: number) => bitmask !== 0 && (bitmask & (bitmask - 1)) === 0
 
+// 清除某行/列/宫对某个数字的可用性。
 const clearMaskBit = (mask: Uint16Array, index: number, bit: number) => {
   mask[index] = (mask[index] ?? 0) & ~bit
 }
 
+// 回溯撤销时恢复某行/列/宫对某个数字的可用性。
 const restoreMaskBit = (mask: Uint16Array, index: number, bit: number) => {
   mask[index] = (mask[index] ?? 0) | bit
 }
@@ -100,6 +112,10 @@ export class Sudoku {
     return true
   }
 
+  /**
+   * 找出所有能被“唯一候选”直接确定的逻辑步。
+   * 当前 UI 主要通过该函数表达约束传播阶段的可视化意义。
+   */
   static getLogicalMoves(grid: SudokuGrid): { r: number; c: number; v: number }[] {
     const moves: { r: number; c: number; v: number }[] = []
     const maskState = this.initializeMasks(grid)
@@ -121,6 +137,10 @@ export class Sudoku {
     return moves
   }
 
+  /**
+   * 校验棋盘是否既合法又填满。
+   * 相比 `validateInitialGrid`，这里额外要求所有单元格非零。
+   */
   static validateFullGrid(grid: SudokuGrid): boolean {
     if (!this.validateInitialGrid(grid)) return false
 
@@ -135,6 +155,10 @@ export class Sudoku {
     return true
   }
 
+  /**
+   * 初始化行 / 列 / 宫三套候选掩码。
+   * 若题面本身非法则立即返回 `null`，调用方必须把这视为硬失败。
+   */
   static initializeMasks(grid: SudokuGrid): MaskState | null {
     if (!this.validateInitialGrid(grid)) return null
 
@@ -159,6 +183,10 @@ export class Sudoku {
     return { rows, cols, blocks }
   }
 
+  /**
+   * 约束传播阶段。
+   * 通过队列不断重新检查受影响单元，直到不存在新的唯一候选。
+   */
   static async propagateConstraints(
     grid: SudokuGrid,
     rows: Uint16Array,
@@ -232,6 +260,10 @@ export class Sudoku {
     }
   }
 
+  /**
+   * 回溯搜索阶段。
+   * 使用 MRV 启发式减少分支数，并通过 `onStep` 让 UI 能追踪每次尝试与撤销。
+   */
   static async backtrackWithMasks(
     grid: SudokuGrid,
     rows: Uint16Array,
@@ -294,6 +326,10 @@ export class Sudoku {
     return false
   }
 
+  /**
+   * 同步求解入口，主要服务题目生成与测试。
+   * 这里会复制一份传播期状态，避免试算过程污染外部棋盘前置条件。
+   */
   static solve(grid: SudokuGrid): boolean {
     const maskState = this.initializeMasks(grid)
     if (!maskState) return false

@@ -12,6 +12,7 @@ import SudokuBoard from '@/components/sudoku/SudokuBoard.vue'
 import SudokuControls from '@/components/sudoku/SudokuControls.vue'
 import SudokuInfo from '@/components/sudoku/SudokuInfo.vue'
 
+// SudokuView 仅负责把 useSudoku 暴露的状态绑定到各子组件。
 const {
   grid, solveType, lockMask, selectedCell, isSettingUp,
   difficulty, isSolving, isValidating, validationStep, isSuccess, solveSpeed,

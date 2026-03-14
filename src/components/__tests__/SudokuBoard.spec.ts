@@ -1,3 +1,8 @@
+/**
+ * SudokuBoard 组件测试。
+ *
+ * 这些断言专注于 class 计算逻辑，因为数独棋盘的多数视觉反馈都通过 class 驱动。
+ */
 import { describe, it, expect } from 'vitest'
 import { mount } from '@vue/test-utils'
 import SudokuBoard from '../sudoku/SudokuBoard.vue'

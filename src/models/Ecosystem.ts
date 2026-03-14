@@ -23,11 +23,17 @@ export class SpatialHash<T extends PositionedObject> {
   cells: Map<string, T[]> = new Map();
   cellSize: number;
 
+  /**
+   * @param cellSize 单个哈希网格的边长，通常与感知半径同量级。
+   */
   constructor(cellSize: number) {
     this.cellSize = cellSize;
   }
 
-  // 清空哈希表，通常每一帧重新构建一次
+  /**
+   * 清空哈希表，通常每一帧重建一次。
+   * 这种“重建式索引”实现简单且足以覆盖当前实体规模。
+   */
   clear() { this.cells.clear(); }
 
   /**
@@ -101,6 +107,12 @@ export class Particle {
   color: string;           // 随机花色
   lastReproductionTime: number; // 上次繁衍时间记录
 
+  /**
+   * @param w 画布宽度，用于限制随机初始位置范围
+   * @param h 画布高度，用于限制随机初始位置范围
+   * @param x 可选起始 x，用于繁殖时在母体附近复制
+   * @param y 可选起始 y，用于繁殖时在母体附近复制
+   */
   constructor(w: number, h: number, x?: number, y?: number) {
     // 若未指定位置，则在画布内随机分布
     this.x = x ?? Math.random() * w;
@@ -231,6 +243,10 @@ export class Predator {
   isDying = false;      // 是否进入死亡过程
   deathProgress = 0;    // 死亡动画百分比 (0-1)
 
+  /**
+   * @param x 捕食者初始横坐标，通常由粒子突变位置提供
+   * @param y 捕食者初始纵坐标，通常由粒子突变位置提供
+   */
   constructor(x: number, y: number) {
     this.x = x; this.y = y;
     this.vx = (Math.random() - 0.5) * 4;

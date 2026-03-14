@@ -10,6 +10,11 @@ import { ref, onMounted, onUnmounted, onActivated, onDeactivated, type Ref } fro
 import { Particle, Predator, CONFIG, SpatialHash } from '@/models/Ecosystem'
 import { useEcosystemStore } from '@/stores/ecosystem'
 
+/**
+ * useEcosystem 把生态系统分为两个时钟：
+ * 1. `setInterval` 驱动的后台仿真时钟，保证切走页面后仍持续推进。
+ * 2. `requestAnimationFrame` 驱动的前台绘制时钟，仅在视图激活时运行。
+ */
 export function useEcosystem() {
   const store = useEcosystemStore()
   const particles: Particle[] = []
@@ -29,6 +34,10 @@ export function useEcosystem() {
   let restartSimulationTimeout: ReturnType<typeof setTimeout> | undefined
   let isRenderActive = false
 
+  /**
+   * 让 canvas 分辨率与容器实际像素尺寸同步。
+   * 若不在这里做同步，CSS 缩放后的画布会导致坐标和清晰度都出现偏差。
+   */
   const handleResize = () => {
     if (!canvasRef.value || !containerRef.value) return
     const width = containerRef.value.clientWidth
@@ -39,6 +48,10 @@ export function useEcosystem() {
     }
   }
 
+  /**
+   * 重新建立一个干净纪元。
+   * 这个入口既用于首次启动，也用于崩溃后的自动重启，因此会显式重置运行统计与实体数组。
+   */
   const startEcosystem = () => {
     const canvas = canvasRef.value
     if (!canvas) return
@@ -63,6 +76,10 @@ export function useEcosystem() {
     store.state.predators = predators.length
   }
 
+  /**
+   * 记录纪元终结并安排延迟重启。
+   * 这里故意拆成两段 timeout，让 UI 先展示“已崩溃”，再切到“重启中”。
+   */
   const scheduleRestart = (currentTime: number, n: number, m: number, k: number) => {
     store.state.status = '已崩溃'
     store.addLog({
@@ -80,6 +97,10 @@ export function useEcosystem() {
     }, 2000)
   }
 
+  /**
+   * 单步推进仿真。
+   * 顺序为：同步时间 -> 刷新空间索引 -> 更新全局状态 -> 更新捕食者 -> 更新猎物。
+   */
   const stepSimulation = (timestamp: number) => {
     const canvas = canvasRef.value
     if (!canvas) return
@@ -159,6 +180,10 @@ export function useEcosystem() {
     }
   }
 
+  /**
+   * 前台渲染入口。
+   * 该函数只读取当前实体快照进行绘制，不负责改变实体状态。
+   */
   const renderScene = () => {
     if (!isRenderActive) return
 
@@ -196,6 +221,10 @@ export function useEcosystem() {
     renderFrame = requestAnimationFrame(renderScene)
   }
 
+  /**
+   * 开启后台仿真时钟。
+   * 重复调用应保持幂等，避免 KeepAlive 激活/初始化过程中创建多个 interval。
+   */
   const startSimulation = () => {
     if (simulationTimer) return
     lastSimulationTime = performance.now()
@@ -204,18 +233,30 @@ export function useEcosystem() {
     }, CONFIG.FRAME_TIME_MS)
   }
 
+  /**
+   * 停止后台仿真时钟。
+   * 仅在最终卸载时调用；KeepAlive deactivated 不应停止仿真。
+   */
   const stopSimulation = () => {
     if (!simulationTimer) return
     clearInterval(simulationTimer)
     simulationTimer = undefined
   }
 
+  /**
+   * 开启前台渲染循环。
+   * 与仿真循环分离后，这里只在页面可见时运行，降低切页后的绘制开销。
+   */
   const startRendering = () => {
     if (isRenderActive) return
     isRenderActive = true
     renderFrame = requestAnimationFrame(renderScene)
   }
 
+  /**
+   * 停止前台渲染循环，但保留仿真。
+   * 这是 KeepAlive 场景下“切走仍继续计算”的关键之一。
+   */
   const stopRendering = () => {
     isRenderActive = false
     if (renderFrame !== undefined) {
@@ -224,6 +265,10 @@ export function useEcosystem() {
     }
   }
 
+  /**
+   * 接收渲染层暴露出的 DOM ref，并完成首次初始化。
+   * 这里统一绑定 ResizeObserver，避免视图组件自己感知尺寸细节。
+   */
   const setRefs = (canvas: Ref<HTMLCanvasElement | null>, container: Ref<HTMLDivElement | null>) => {
     canvasRef.value = canvas.value
     containerRef.value = container.value
@@ -241,6 +286,7 @@ export function useEcosystem() {
   }
 
   onMounted(() => {
+    // 组件首次挂载时尝试恢复绘制；真正的仿真启动仍依赖 setRefs 提供真实 DOM。
     startRendering()
   })
 
