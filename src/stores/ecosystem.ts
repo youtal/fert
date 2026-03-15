@@ -1,6 +1,6 @@
 /**
  * stores/ecosystem.ts
- * 
+ *
  * 粒子演化全局状态库。
  * 职责：
  * 1. 存储演化环境的控制参数。
@@ -14,12 +14,12 @@ import { ref, reactive } from 'vue'
  * 历史纪元日志记录接口
  */
 export interface HistoryLog {
-  id: number;      // 唯一 ID（通常为时间戳）
-  uptime: number;  // 本纪元持续时间 (秒)
-  peak: number;    // 本纪元达到的最高种群数量
-  n: number;       // 对应的繁衍周期参数
-  m: number;       // 对应的突变概率参数
-  k: number;       // 对应的饥饿阈值参数
+  id: number // 唯一 ID（通常为时间戳）
+  uptime: number // 本纪元持续时间 (秒)
+  peak: number // 本纪元达到的最高种群数量
+  n: number // 对应的繁衍周期参数
+  m: number // 对应的突变概率参数
+  k: number // 对应的饥饿阈值参数
 }
 
 export interface EcosystemParams {
@@ -34,10 +34,10 @@ export interface EcosystemParams {
  * UI 重置、运行时钳制和测试断言都应以这里为准，避免魔法数字分散。
  */
 const DEFAULT_PARAMS: EcosystemParams = {
-  n: 8,
-  m: 4,
-  k: 6,
-  minSpacing: 35,
+  n: 4,
+  m: 2,
+  k: 4,
+  minSpacing: 12,
 }
 
 /**
@@ -55,11 +55,7 @@ const PARAM_RANGES = {
  * 将任意输入压缩为安全整数。
  * 仿真循环只消费经过此函数处理后的值，确保时间参数和间距参数始终可预测。
  */
-const clampParam = (
-  value: number,
-  fallback: number,
-  range: { min: number; max: number },
-) => {
+const clampParam = (value: number, fallback: number, range: { min: number; max: number }) => {
   if (!Number.isFinite(value)) return fallback
   return Math.min(range.max, Math.max(range.min, Math.round(value)))
 }
@@ -77,11 +73,11 @@ export const useEcosystemStore = defineStore('ecosystem', () => {
 
   // 实时运行状态：由逻辑钩子 (useEcosystem) 动态写入
   const state = reactive({
-    preys: 0,       // 当前猎物粒子总数
-    predators: 0,   // 当前捕食者总数
-    peak: 0,        // 本纪元内的历史最大人口峰值
-    uptime: 0,      // 系统连续运行时间 (秒)
-    status: '运行中' as '运行中' | '已崩溃' | '重启中'
+    preys: 0, // 当前猎物粒子总数
+    predators: 0, // 当前捕食者总数
+    peak: 0, // 本纪元内的历史最大人口峰值
+    uptime: 0, // 系统连续运行时间 (秒)
+    status: '运行中' as '运行中' | '已崩溃' | '重启中',
   })
 
   // 历史纪元日志：存储最近 5 次系统灭绝的统计数据
@@ -103,7 +99,11 @@ export const useEcosystemStore = defineStore('ecosystem', () => {
     params.n = clampParam(params.n, DEFAULT_PARAMS.n, PARAM_RANGES.n)
     params.m = clampParam(params.m, DEFAULT_PARAMS.m, PARAM_RANGES.m)
     params.k = clampParam(params.k, DEFAULT_PARAMS.k, PARAM_RANGES.k)
-    params.minSpacing = clampParam(params.minSpacing, DEFAULT_PARAMS.minSpacing, PARAM_RANGES.minSpacing)
+    params.minSpacing = clampParam(
+      params.minSpacing,
+      DEFAULT_PARAMS.minSpacing,
+      PARAM_RANGES.minSpacing,
+    )
 
     return {
       n: params.n,

@@ -9,6 +9,10 @@ import { setActivePinia, createPinia } from 'pinia'
 import { useEcosystemStore } from '../ecosystem'
 
 describe('Ecosystem Store (状态管理) 测试', () => {
+  /**
+   * 为每个用例重建 Pinia 上下文。
+   * 这样参数修改和历史日志不会在不同断言之间串味。
+   */
   beforeEach(() => {
     // 每次测试前初始化干净的 Pinia 实例
     setActivePinia(createPinia())
@@ -16,9 +20,10 @@ describe('Ecosystem Store (状态管理) 测试', () => {
 
   it('应该使用正确的默认值初始化', () => {
     const store = useEcosystemStore()
-    expect(store.params.n).toBe(8)
-    expect(store.params.m).toBe(4)
-    expect(store.params.k).toBe(6)
+    expect(store.params.n).toBe(4)
+    expect(store.params.m).toBe(2)
+    expect(store.params.k).toBe(4)
+    expect(store.params.minSpacing).toBe(12)
     expect(store.state.status).toBe('运行中')
     expect(store.historyLogs).toHaveLength(0)
   })
@@ -38,10 +43,10 @@ describe('Ecosystem Store (状态管理) 测试', () => {
 
     const sanitized = store.sanitizeParams()
 
-    expect(sanitized.n).toBe(8)
+    expect(sanitized.n).toBe(4)
     expect(sanitized.m).toBe(0)
     expect(sanitized.k).toBe(15)
-    expect(sanitized.minSpacing).toBe(35)
+    expect(sanitized.minSpacing).toBe(12)
   })
 
   it('添加日志时应保持最多 5 条记录的上限', () => {

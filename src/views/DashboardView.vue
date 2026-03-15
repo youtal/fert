@@ -6,6 +6,10 @@
  * 页面采用瀑布式卡片布局，用于快速介绍模块能力、运行模型与开发约定。
  * 卡片数据集中定义在脚本区，便于后续扩展或替换为配置化来源。
  */
+/**
+ * 首页卡片数据源。
+ * 当前保持静态定义，优先保证首页文案与发布信息在版本冻结时稳定可控。
+ */
 const introCards = [
   {
     title: 'Fret 项目概览',
@@ -41,7 +45,7 @@ const introCards = [
     eyebrow: 'Quality Gate',
     body: '项目当前把类型检查、单测和构建都作为日常门禁，确保重构不会悄悄破坏行为。',
     metricLabel: 'Tests',
-    metricValue: '59',
+    metricValue: '60',
     metricFootnote: '全量测试用例',
   },
   {
@@ -106,8 +110,10 @@ const introCards = [
 
 <style scoped>
 .dashboard-view {
-  min-height: 100%;
+  height: 100%;
   padding: 2.5rem;
+  /* 首页固定为海报式视图，不允许主内容区再出现纵向滚动条。 */
+  overflow-y: hidden;
   background:
     radial-gradient(circle at top left, rgba(56, 189, 248, 0.14), transparent 28%),
     radial-gradient(circle at 80% 20%, rgba(244, 114, 182, 0.12), transparent 24%),
@@ -155,6 +161,63 @@ const introCards = [
   background: rgba(15, 23, 42, 0.72);
   box-shadow: 0 20px 45px rgba(2, 6, 23, 0.35);
   backdrop-filter: blur(14px);
+  position: relative;
+  overflow: hidden;
+  transition:
+    transform 0.24s ease,
+    box-shadow 0.24s ease,
+    border-color 0.24s ease,
+    background 0.24s ease;
+}
+
+.intro-card::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(circle at top left, rgba(255, 255, 255, 0.16), transparent 42%),
+    linear-gradient(135deg, rgba(255, 255, 255, 0.06), transparent 55%);
+  opacity: 0;
+  transition: opacity 0.24s ease;
+  pointer-events: none;
+}
+
+.intro-card::after {
+  content: '';
+  position: absolute;
+  inset: -1px;
+  border-radius: inherit;
+  background: linear-gradient(135deg, rgba(125, 211, 252, 0.45), rgba(255, 255, 255, 0.04), rgba(251, 191, 36, 0.22));
+  opacity: 0;
+  transition: opacity 0.24s ease;
+  pointer-events: none;
+  mask:
+    linear-gradient(#fff 0 0) content-box,
+    linear-gradient(#fff 0 0);
+  -webkit-mask:
+    linear-gradient(#fff 0 0) content-box,
+    linear-gradient(#fff 0 0);
+  padding: 1px;
+  mask-composite: exclude;
+  -webkit-mask-composite: xor;
+}
+
+.intro-card:hover {
+  transform: translateY(-8px) scale(1.01);
+  border-color: rgba(125, 211, 252, 0.24);
+  box-shadow:
+    0 28px 60px rgba(2, 6, 23, 0.48),
+    0 0 24px rgba(56, 189, 248, 0.12);
+}
+
+.intro-card:hover::before,
+.intro-card:hover::after {
+  opacity: 1;
+}
+
+.intro-card > * {
+  position: relative;
+  z-index: 1;
 }
 
 .tone-hero {

@@ -12,6 +12,8 @@ import { Sudoku, type SudokuGrid } from '@/utils/sudoku'
  */
 const SOLVE_AUDIO_MIN_FREQUENCY = 240
 const SOLVE_AUDIO_MAX_FREQUENCY = 1080
+const SOLVE_COMPLETE_PATTERN = [880, 1100, 1320]
+const VALIDATION_SUCCESS_PATTERN = [740, 988, 1480]
 
 type AudioContextLike = {
   state?: string
@@ -45,6 +47,18 @@ const countEmptyCells = (grid: SudokuGrid) => grid.reduce(
   (count, row) => count + row.filter((cell) => cell === 0).length,
   0,
 )
+
+/**
+ * 自动解算完成提示音。
+ * 采用逐步上扬的短三音，和普通步进音做出明显区分。
+ */
+export const getSolveCompletePattern = () => [...SOLVE_COMPLETE_PATTERN]
+
+/**
+ * 验证通过提示音。
+ * 音高更明亮，用于表达“最终结果被确认正确”。
+ */
+export const getValidationSuccessPattern = () => [...VALIDATION_SUCCESS_PATTERN]
 
 /**
  * 创建自动解算音效控制器。
@@ -105,6 +119,19 @@ const createSolveAudioController = () => {
   }
 
   /**
+   * 播放一组短音序列。
+   * 每个音之间留出少量间隔，避免连在一起时变成一段拖长的单音。
+   */
+  const playPattern = async (pattern: number[]) => {
+    for (const [index, frequency] of pattern.entries()) {
+      await playStep(frequency)
+      if (index < pattern.length - 1) {
+        await new Promise((resolve) => setTimeout(resolve, 80))
+      }
+    }
+  }
+
+  /**
    * 在组件最终卸载时释放音频上下文。
    * KeepAlive 切换不调用此逻辑，避免返回页面后频繁重建上下文。
    */
@@ -118,6 +145,7 @@ const createSolveAudioController = () => {
 
   return {
     playStep,
+    playPattern,
     stop,
   }
 }
@@ -137,7 +165,7 @@ export function useSudoku() {
   const selectedCell = reactive({ row: -1, col: -1 })
   
   const isSettingUp = ref(false) 
-  const difficulty = ref(40)
+  const difficulty = ref(55)
   const isSolving = ref(false)
   const isValidating = ref(false)
   const validationStep = ref(-1)
@@ -208,6 +236,7 @@ export function useSudoku() {
     if (!isSuccess.value) {
       alert('验证失败：盘面存在冲突或未填满！')
     } else {
+      void solveAudio.playPattern(getValidationSuccessPattern())
       for (let r = 0; r < 9; r++) {
         for (let c = 0; c < 9; c++) {
           if (solveType.value[r]?.[c] === 2) setSolveType(r, c, 1)
@@ -241,7 +270,10 @@ export function useSudoku() {
     if (runId !== solveRunId) return
     isSolving.value = false
     selectedCell.row = -1; selectedCell.col = -1
-    if (success) await runValidationAnimation(runId)
+    if (success) {
+      void solveAudio.playPattern(getSolveCompletePattern())
+      await runValidationAnimation(runId)
+    }
     else alert('该布局无解！')
   }
 

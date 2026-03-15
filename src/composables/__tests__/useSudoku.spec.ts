@@ -6,11 +6,20 @@
  */
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest'
 import { mount } from '@vue/test-utils'
-import { getSolveStepFrequency, useSudoku } from '../useSudoku'
+import {
+  getSolveCompletePattern,
+  getSolveStepFrequency,
+  getValidationSuccessPattern,
+  useSudoku,
+} from '../useSudoku'
 import { Sudoku } from '@/utils/sudoku'
 import { defineComponent, h, KeepAlive, nextTick, ref } from 'vue'
 
 describe('useSudoku (逻辑钩子) 测试', () => {
+  /**
+   * 轻量宿主组件。
+   * 用于让 composable 在真实组件生命周期中运行，避免直接调用时漏掉 activated / mounted 行为。
+   */
   const TestComponent = defineComponent({
     setup() {
       return { ...useSudoku() }
@@ -21,16 +30,22 @@ describe('useSudoku (逻辑钩子) 测试', () => {
   beforeEach(() => {
     vi.useFakeTimers()
 
+    /**
+     * 音频参数 mock。
+     * 测试不关心 Web Audio 内部实现，只需要保证调用链存在即可。
+     */
     class FakeAudioParam {
       setValueAtTime() {}
       exponentialRampToValueAtTime() {}
     }
 
+    // GainNode mock：提供最小可用接口，让 useSudoku 能走完整音效分支。
     class FakeGainNode {
       gain = new FakeAudioParam()
       connect() {}
     }
 
+    // OscillatorNode mock：避免 jsdom 环境缺失浏览器音频对象而导致测试失败。
     class FakeOscillatorNode {
       type: OscillatorType = 'sine'
       frequency = new FakeAudioParam()
@@ -70,9 +85,14 @@ describe('useSudoku (逻辑钩子) 测试', () => {
     expect(getSolveStepFrequency(40)).toBeLessThan(getSolveStepFrequency(0))
   })
 
+  it('完成音效与验证成功音效应使用独立的特殊旋律', () => {
+    expect(getSolveCompletePattern()).toEqual([880, 1100, 1320])
+    expect(getValidationSuccessPattern()).toEqual([740, 988, 1480])
+  })
+
   it('初始化时应生成一个新题目', () => {
     const wrapper = mount(TestComponent)
-    const { grid, lockMask } = wrapper.vm as any
+    const { grid, lockMask, difficulty } = wrapper.vm as any
     
     let nonZero = 0
     for (let r = 0; r < 9; r++) {
@@ -83,6 +103,7 @@ describe('useSudoku (逻辑钩子) 测试', () => {
         }
       }
     }
+    expect(difficulty).toBe(55)
     expect(nonZero).toBeGreaterThan(0)
   })
 
@@ -146,6 +167,7 @@ describe('useSudoku (逻辑钩子) 测试', () => {
   })
 
   it('KeepAlive 切走后自动解算应继续进行并在恢复时保持进度', async () => {
+    // 子组件只负责暴露 composable，测试重点是 KeepAlive 生命周期而不是模板行为。
     const Child = defineComponent({
       setup() {
         return { ...useSudoku() }

@@ -106,4 +106,15 @@ const updateSpeed = () => emit('update:solveSpeed', localSolveSpeed.value)
 .slider-val { color: #818cf8; font-weight: 700; font-family: monospace; }
 .neon-slider { -webkit-appearance: none; width: 100%; height: 4px; background: #334155; border-radius: 2px; }
 .neon-slider::-webkit-slider-thumb { -webkit-appearance: none; width: 18px; height: 18px; border-radius: 50%; background: #6366f1; cursor: pointer; border: 3px solid #fff; }
+
+@media (max-width: 980px) {
+  /* 上下布局下让控制面板按容器宽度伸展，避免保留桌面端的窄侧栏比例。 */
+  .controls-section {
+    width: min(100%, 560px);
+  }
+
+  .control-panel-inner {
+    width: 100%;
+  }
+}
 </style>

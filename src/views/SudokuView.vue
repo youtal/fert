@@ -63,10 +63,48 @@ const {
   background: radial-gradient(circle at center, #1e293b 0%, #09090b 100%);
   position: absolute; top: 0; left: 0;
   display: flex; align-items: center; justify-content: center;
-  overflow: hidden;
+  overflow: auto;
 }
 
 .main-layout-horizontal {
-  display: flex; align-items: flex-start; gap: 3rem; padding: 2rem; z-index: 10;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  gap: 3rem;
+  padding: 2rem;
+  z-index: 10;
+  width: min(100%, 1100px);
+}
+
+.board-section {
+  display: flex;
+  justify-content: center;
+  flex: 0 1 auto;
+}
+
+@media (max-width: 980px) {
+  .sudoku-view {
+    align-items: flex-start;
+  }
+
+  /* 当横向空间不足时切换为上下布局，优先保障棋盘与面板都能完整显示。 */
+  .main-layout-horizontal {
+    flex-direction: column;
+    align-items: center;
+    gap: 1.5rem;
+    width: 100%;
+    padding: 5.5rem 1.5rem 1.5rem;
+  }
+
+  .board-section {
+    width: 100%;
+  }
+}
+
+@media (max-width: 600px) {
+  .main-layout-horizontal {
+    padding-left: 1rem;
+    padding-right: 1rem;
+  }
 }
 </style>
