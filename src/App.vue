@@ -32,6 +32,8 @@ import { RouterView } from 'vue-router'
   margin: 0;
   padding: 0;
   box-sizing: border-box;
+  /* 统一禁用输入光标，避免点击各类交互容器时出现无意义 caret。 */
+  caret-color: transparent;
 }
 
 html, body, #app {

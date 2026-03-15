@@ -56,10 +56,18 @@ const restoreMaskBit = (mask: Uint16Array, index: number, bit: number) => {
 }
 
 export class Sudoku {
+  /**
+   * 创建标准 9x9 空棋盘。
+   * 所有“清空”或“初始化”流程都应通过这里获取新实例，避免共享引用。
+   */
   static createEmptyGrid(): SudokuGrid {
     return Array.from({ length: 9 }, () => Array(9).fill(0))
   }
 
+  /**
+   * 校验某个数字放入指定位置后是否仍满足行、列、宫约束。
+   * 该方法主要服务自定义题面输入与随机填盘阶段。
+   */
   static isValid(grid: SudokuGrid, row: number, col: number, num: number): boolean {
     const rowValues = getRow(grid, row)
     if (!rowValues) return false
@@ -83,6 +91,10 @@ export class Sudoku {
     return true
   }
 
+  /**
+   * 校验初始题面是否合法。
+   * 允许空格存在，但不允许越界值、重复值或非 9x9 结构。
+   */
   static validateInitialGrid(grid: SudokuGrid): boolean {
     const rowSets = Array.from({ length: 9 }, () => new Set<number>())
     const colSets = Array.from({ length: 9 }, () => new Set<number>())
@@ -406,6 +418,10 @@ export class Sudoku {
       }
     }
 
+    /**
+     * 同步回溯内核。
+     * 与异步版本共享 MRV 选点策略，但这里不发出动画回调，专注于得到最终答案。
+     */
     const backtrackSync = (candidateGrid: SudokuGrid, candidateRows: Uint16Array, candidateCols: Uint16Array, candidateBlocks: Uint16Array): boolean => {
       let targetRow = -1
       let targetCol = -1
@@ -472,6 +488,10 @@ export class Sudoku {
     return this.validateFullGrid(grid)
   }
 
+  /**
+   * 统计题面的解数量，默认只关心“0 / 1 / 多解”。
+   * `limit` 用于提前剪枝，避免在判定唯一解时做不必要的全量枚举。
+   */
   static countSolutions(grid: SudokuGrid, limit = 2): number {
     const candidateGrid = cloneGrid(grid)
     const maskState = this.initializeMasks(candidateGrid)
@@ -480,6 +500,10 @@ export class Sudoku {
     const { rows, cols, blocks } = maskState
     let count = 0
 
+    /**
+     * 计数版回溯。
+     * 与普通求解的区别在于不会在找到第一组解后立即结束，而是继续统计直到触达上限。
+     */
     const backtrackCount = (activeGrid: SudokuGrid, activeRows: Uint16Array, activeCols: Uint16Array, activeBlocks: Uint16Array) => {
       if (count >= limit) return
 
@@ -539,6 +563,10 @@ export class Sudoku {
     return count
   }
 
+  /**
+   * 随机填满一张完整终盘。
+   * 该函数是题目生成器的起点，因此偏重“能快速得到一个合法终盘”而不是可视化过程。
+   */
   static fillGridRandomly(grid: SudokuGrid): boolean {
     for (let row = 0; row < 9; row++) {
       const rowValues = getRow(grid, row)
@@ -559,6 +587,10 @@ export class Sudoku {
     return true
   }
 
+  /**
+   * 生成指定挖空数量的题目，并同时返回完整解答。
+   * 当前策略是先构造完整终盘，再逐格尝试挖空，并用唯一解校验决定是否保留该空位。
+   */
   static generatePuzzle(targetHoles = 40): { puzzle: SudokuGrid; solution: SudokuGrid } {
     const solution = this.createEmptyGrid()
     this.fillGridRandomly(solution)

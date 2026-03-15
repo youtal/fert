@@ -131,6 +131,10 @@ export class Particle {
   /**
    * 施加转向力
    */
+  /**
+   * 累积当前帧的受力结果。
+   * 所有 steering 行为都会先写入加速度，最后由 `update` 一次性整合到速度中。
+   */
   applyForce(fx: number, fy: number, timeScale = 1) { this.ax += fx * timeScale; this.ay += fy * timeScale; }
 
   /**

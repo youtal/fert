@@ -27,6 +27,10 @@ type AudioWindow = Window & typeof globalThis & {
   webkitAudioContext?: new () => AudioContextLike
 }
 
+/**
+ * 将剩余空格数映射为提示音频率。
+ * 解算越接近完成，返回值越高，从而形成明显的“逐步收束”听感。
+ */
 export const getSolveStepFrequency = (emptyCells: number) => {
   const normalizedEmptyCells = Math.max(0, Math.min(80, emptyCells))
   const progress = (80 - normalizedEmptyCells) / 80
@@ -42,6 +46,11 @@ const countEmptyCells = (grid: SudokuGrid) => grid.reduce(
   0,
 )
 
+/**
+ * 创建自动解算音效控制器。
+ * 这里故意封装成闭包，而不是把 `AudioContext` 暴露到 composable 外层，
+ * 以免 UI 层误持有底层音频资源。
+ */
 const createSolveAudioController = () => {
   let audioContext: AudioContextLike | null = null
   let isClosed = false
@@ -113,6 +122,11 @@ const createSolveAudioController = () => {
   }
 }
 
+/**
+ * 数独模块总控制器。
+ * 它统一收口题目生成、用户输入、自动解算、校验动画与生命周期监听，
+ * 让视图层只负责组装组件，不直接操心求解细节。
+ */
 export function useSudoku() {
   const grid = ref<SudokuGrid>(Sudoku.createEmptyGrid())
   const solutionSnapshot = ref<SudokuGrid | null>(null) 
@@ -132,16 +146,30 @@ export function useSudoku() {
   let solveRunId = 0
   const solveAudio = createSolveAudioController()
 
+  /**
+   * 原地更新棋盘单元格。
+   * 单独封装后，动画步进和用户输入都复用同一写入口。
+   */
   const setCell = (row: number, col: number, value: number) => {
     const rowValues = grid.value[row]
     if (!rowValues) return
     rowValues[col] = value
   }
+
+  /**
+   * 写入当前格子的视觉语义类型。
+   * 颜色与高亮表现都依赖这份矩阵，而不是从棋盘值反推。
+   */
   const setSolveType = (row: number, col: number, value: number) => {
     const rowValues = solveType.value[row]
     if (!rowValues) return
     rowValues[col] = value
   }
+
+  /**
+   * 读取给定格子是否为题面锁定格。
+   * 对外隐藏 `lockMask` 的可选链细节，让调用点保持干净。
+   */
   const getLock = (row: number, col: number) => lockMask.value[row]?.[col] ?? false
 
   /**
@@ -323,6 +351,10 @@ export function useSudoku() {
     solveAudio.stop()
   })
 
+  /**
+   * 视图层只消费这些状态和命令。
+   * `selectCell` 保持内联，是为了把“解算/校验期间禁止切换选中格”这条约束封在导出边界上。
+   */
   return {
     grid, solveType, lockMask, selectedCell, isSettingUp,
     difficulty, isSolving, isValidating, validationStep, isSuccess, solveSpeed,

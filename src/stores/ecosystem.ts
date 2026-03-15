@@ -64,6 +64,11 @@ const clampParam = (
   return Math.min(range.max, Math.max(range.min, Math.round(value)))
 }
 
+/**
+ * 生态系统全局 store。
+ * 这里故意只保存“可序列化且跨组件共享”的状态；
+ * 仿真实体数组和定时器仍留在 composable 中，避免 store 承担实时循环副作用。
+ */
 export const useEcosystemStore = defineStore('ecosystem', () => {
   // 演化控制参数：支持在 UI 界面通过滑块实时调整
   const params = reactive({
