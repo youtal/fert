@@ -40,11 +40,13 @@ const navigate = (path: RoutePath) => {
 <template>
   <aside class="sidebar" :class="{ 'is-collapsed': isCollapsed }">
     <div class="sidebar-header">
-      <div 
+      <button
+        type="button"
         class="logo-container" 
         @click="handleLogoClick"
         @mouseenter="isLogoHovered = true"
         @mouseleave="isLogoHovered = false"
+        :aria-label="isCollapsed ? '展开导航' : 'Fret 框架'"
       >
         <div class="icon-fixed-wrapper">
           <div class="logo-icon-wrapper">
@@ -55,48 +57,48 @@ const navigate = (path: RoutePath) => {
         <div class="text-container" :class="{ 'hidden': isCollapsed }">
           <span class="logo-text">Fret 框架</span>
         </div>
-      </div>
+      </button>
       
       <!-- 展开状态下才显示显式折叠按钮，降低视觉噪音 -->
       <button v-if="!isCollapsed" class="collapse-btn" @click="$emit('toggle')">←</button>
     </div>
 
     <nav class="nav-menu">
-      <div class="nav-item" :class="{ active: route.path === '/' }" @click="navigate('/')" data-tooltip="控制台">
+      <button type="button" class="nav-item" :class="{ active: route.path === '/' }" @click="navigate('/')" data-tooltip="控制台" aria-label="控制台">
         <div class="icon-fixed-wrapper">
           <img src="@/icons/home-dark-mode.svg" class="nav-icon" alt="Home" />
         </div>
         <div class="text-container" :class="{ 'hidden': isCollapsed }">
           <span class="nav-text">控制台</span>
         </div>
-      </div>
+      </button>
       
-      <div class="nav-item" :class="{ active: route.path === '/particles' }" @click="navigate('/particles')" data-tooltip="粒子演化">
+      <button type="button" class="nav-item" :class="{ active: route.path === '/particles' }" @click="navigate('/particles')" data-tooltip="粒子演化" aria-label="粒子演化">
         <div class="icon-fixed-wrapper">
           <img src="@/icons/Particle-dark-mode.svg" class="nav-icon" alt="Particles" />
         </div>
         <div class="text-container" :class="{ 'hidden': isCollapsed }">
           <span class="nav-text">粒子演化</span>
         </div>
-      </div>
+      </button>
 
-      <div class="nav-item" :class="{ active: route.path === '/sudoku' }" @click="navigate('/sudoku')" data-tooltip="数独解算">
+      <button type="button" class="nav-item" :class="{ active: route.path === '/sudoku' }" @click="navigate('/sudoku')" data-tooltip="数独解算" aria-label="数独解算">
         <div class="icon-fixed-wrapper">
           <img src="@/icons/sudoku-dark-mode.svg" class="nav-icon" alt="Sudoku" />
         </div>
         <div class="text-container" :class="{ 'hidden': isCollapsed }">
           <span class="nav-text">数独解算</span>
         </div>
-      </div>
+      </button>
 
-      <div class="nav-item disabled" data-tooltip="系统设置">
+      <button type="button" class="nav-item disabled" data-tooltip="系统设置" aria-label="系统设置" disabled>
         <div class="icon-fixed-wrapper">
           <img src="@/icons/setting-dark-mode.svg" class="nav-icon" alt="Settings" />
         </div>
         <div class="text-container" :class="{ 'hidden': isCollapsed }">
           <span class="nav-text">系统设置</span>
         </div>
-      </div>
+      </button>
     </nav>
   </aside>
 </template>
@@ -117,7 +119,14 @@ const navigate = (path: RoutePath) => {
   height: 80px; display: flex; align-items: center; padding: 0 1rem;
 }
 
-.logo-container { display: flex; align-items: center; cursor: pointer; }
+.logo-container {
+  display: flex;
+  align-items: center;
+  cursor: pointer;
+  background: transparent;
+  border: none;
+  color: inherit;
+}
 
 /* 固定图标容器：无论侧边栏如何折叠，图标相对于左侧边缘的位置保持不变 */
 .icon-fixed-wrapper {
@@ -144,6 +153,10 @@ const navigate = (path: RoutePath) => {
   margin-bottom: 0.5rem; border-radius: 12px; cursor: pointer;
   transition: background 0.2s, color 0.2s; color: #94a3b8;
   position: relative;
+  width: 100%;
+  background: transparent;
+  border: none;
+  text-align: left;
 }
 .nav-item:hover { background: rgba(255, 255, 255, 0.05); color: #f1f5f9; }
 .nav-item.active { background: rgba(99, 102, 241, 0.15); color: #818cf8; }

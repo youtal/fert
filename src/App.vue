@@ -9,6 +9,7 @@
  * 这里不放业务状态，避免根组件变成跨模块逻辑入口。
  */
 import MainLayout from './layouts/MainLayout.vue'
+import AppNotifications from './components/AppNotifications.vue'
 import { RouterView } from 'vue-router'
 </script>
 
@@ -21,6 +22,7 @@ import { RouterView } from 'vue-router'
       </keep-alive>
     </router-view>
   </MainLayout>
+  <AppNotifications />
 </template>
 
 <style>
@@ -32,8 +34,6 @@ import { RouterView } from 'vue-router'
   margin: 0;
   padding: 0;
   box-sizing: border-box;
-  /* 统一禁用输入光标，避免点击各类交互容器时出现无意义 caret。 */
-  caret-color: transparent;
 }
 
 html, body, #app {

@@ -80,15 +80,17 @@ const getHighlightClass = (r: number, c: number) => {
     'validation-error': isValidating && !isSuccess
   }">
     <div v-for="(row, rIdx) in grid" :key="rIdx" class="board-row">
-      <div 
+      <button
         v-for="(cell, cIdx) in row" 
         :key="cIdx" 
         class="board-cell"
         :class="getHighlightClass(rIdx, cIdx)"
+        type="button"
+        :aria-label="`第 ${rIdx + 1} 行第 ${cIdx + 1} 列，当前值 ${cell === 0 ? '空' : cell}`"
         @click="emit('select', rIdx, cIdx)"
       >
         {{ cell === 0 ? '' : cell }}
-      </div>
+      </button>
     </div>
   </div>
 </template>
@@ -131,6 +133,7 @@ const getHighlightClass = (r: number, c: number) => {
   display: flex; align-items: center; justify-content: center;
   font-size: 1.5rem; font-weight: 700;
   border: 1px solid rgba(71, 85, 105, 0.2);
+  background: transparent;
   cursor: pointer; transition: all 0.1s;
   position: relative;
   user-select: none;

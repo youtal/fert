@@ -112,12 +112,18 @@ const introCards = [
 .dashboard-view {
   height: 100%;
   padding: 2.5rem;
-  /* 首页固定为海报式视图，不允许主内容区再出现纵向滚动条。 */
-  overflow-y: hidden;
+  overflow-y: auto;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
   background:
     radial-gradient(circle at top left, rgba(56, 189, 248, 0.14), transparent 28%),
     radial-gradient(circle at 80% 20%, rgba(244, 114, 182, 0.12), transparent 24%),
     linear-gradient(180deg, rgba(15, 23, 42, 0.96), rgba(2, 6, 23, 0.98));
+}
+
+.dashboard-view::-webkit-scrollbar {
+  width: 0;
+  height: 0;
 }
 
 .hero {

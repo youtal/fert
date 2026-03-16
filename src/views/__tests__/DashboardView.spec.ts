@@ -42,4 +42,5 @@ describe('DashboardView (项目介绍页) 测试', () => {
     expect(commands).toContain('npm run type-check')
     expect(commands).toContain('npm run build')
   })
+
 })

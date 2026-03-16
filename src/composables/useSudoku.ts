@@ -1,43 +1,19 @@
 /**
  * composables/useSudoku.ts
- * 
- * 数独功能核心控制器 (已还原至稳定版本)。
+ *
+ * 数独功能核心控制器。
+ * 当前版本保留题目流转、棋盘状态、解算流程与生命周期监听，
+ * 音频与全局通知等外围能力已拆到独立模块，降低文件职责密度。
  */
 import { ref, reactive, onMounted, onUnmounted, onActivated, onDeactivated } from 'vue'
 import { Sudoku, type SudokuGrid } from '@/utils/sudoku'
-
-/**
- * 自动解算提示音的频率上下界。
- * 选在这个区间是为了让手机与桌面扬声器都能稳定发声，同时避免高频刺耳。
- */
-const SOLVE_AUDIO_MIN_FREQUENCY = 240
-const SOLVE_AUDIO_MAX_FREQUENCY = 1080
-const SOLVE_COMPLETE_PATTERN = [880, 1100, 1320]
-const VALIDATION_SUCCESS_PATTERN = [740, 988, 1480]
-
-type AudioContextLike = {
-  state?: string
-  currentTime: number
-  destination: AudioDestinationNode
-  resume?: () => Promise<void>
-  close?: () => Promise<void>
-  createOscillator: () => OscillatorNode
-  createGain: () => GainNode
-}
-
-type AudioWindow = Window & typeof globalThis & {
-  webkitAudioContext?: new () => AudioContextLike
-}
-
-/**
- * 将剩余空格数映射为提示音频率。
- * 解算越接近完成，返回值越高，从而形成明显的“逐步收束”听感。
- */
-export const getSolveStepFrequency = (emptyCells: number) => {
-  const normalizedEmptyCells = Math.max(0, Math.min(80, emptyCells))
-  const progress = (80 - normalizedEmptyCells) / 80
-  return SOLVE_AUDIO_MIN_FREQUENCY + (SOLVE_AUDIO_MAX_FREQUENCY - SOLVE_AUDIO_MIN_FREQUENCY) * progress
-}
+import { pushNotification } from '@/composables/useAppNotifications'
+import {
+  createSolveAudioController,
+  getSolveCompletePattern,
+  getSolveStepFrequency,
+  getValidationSuccessPattern,
+} from '@/composables/sudoku/useSudokuAudio'
 
 /**
  * 统计当前棋盘剩余空位。
@@ -48,107 +24,7 @@ const countEmptyCells = (grid: SudokuGrid) => grid.reduce(
   0,
 )
 
-/**
- * 自动解算完成提示音。
- * 采用逐步上扬的短三音，和普通步进音做出明显区分。
- */
-export const getSolveCompletePattern = () => [...SOLVE_COMPLETE_PATTERN]
-
-/**
- * 验证通过提示音。
- * 音高更明亮，用于表达“最终结果被确认正确”。
- */
-export const getValidationSuccessPattern = () => [...VALIDATION_SUCCESS_PATTERN]
-
-/**
- * 创建自动解算音效控制器。
- * 这里故意封装成闭包，而不是把 `AudioContext` 暴露到 composable 外层，
- * 以免 UI 层误持有底层音频资源。
- */
-const createSolveAudioController = () => {
-  let audioContext: AudioContextLike | null = null
-  let isClosed = false
-
-  /**
-   * 惰性获取音频上下文。
-   * 只有用户真的触发自动解算时才初始化，避免页面初次加载就占用音频资源。
-   */
-  const getAudioContext = () => {
-    if (audioContext || isClosed || typeof window === 'undefined') return audioContext
-
-    const audioWindow = window as AudioWindow
-    const AudioContextCtor = audioWindow.AudioContext ?? audioWindow.webkitAudioContext
-    if (!AudioContextCtor) return null
-
-    audioContext = new AudioContextCtor()
-    return audioContext
-  }
-
-  /**
-   * 播放单次短音。
-   * 包络使用快速起音 + 快速衰减，避免连续步进时尾音堆叠得过于明显。
-   */
-  const playStep = async (frequency: number) => {
-    const context = getAudioContext()
-    if (!context) return
-
-    if (context.state === 'suspended' && context.resume) {
-      try {
-        await context.resume()
-      } catch {
-        return
-      }
-    }
-
-    const oscillator = context.createOscillator()
-    const gainNode = context.createGain()
-    const startTime = context.currentTime
-    const safeFrequency = Math.max(SOLVE_AUDIO_MIN_FREQUENCY, Math.min(SOLVE_AUDIO_MAX_FREQUENCY, frequency))
-
-    oscillator.type = 'sine'
-    oscillator.frequency.setValueAtTime(safeFrequency, startTime)
-
-    gainNode.gain.setValueAtTime(0.0001, startTime)
-    gainNode.gain.exponentialRampToValueAtTime(0.035, startTime + 0.01)
-    gainNode.gain.exponentialRampToValueAtTime(0.0001, startTime + 0.12)
-
-    oscillator.connect(gainNode)
-    gainNode.connect(context.destination)
-    oscillator.start(startTime)
-    oscillator.stop(startTime + 0.12)
-  }
-
-  /**
-   * 播放一组短音序列。
-   * 每个音之间留出少量间隔，避免连在一起时变成一段拖长的单音。
-   */
-  const playPattern = async (pattern: number[]) => {
-    for (const [index, frequency] of pattern.entries()) {
-      await playStep(frequency)
-      if (index < pattern.length - 1) {
-        await new Promise((resolve) => setTimeout(resolve, 80))
-      }
-    }
-  }
-
-  /**
-   * 在组件最终卸载时释放音频上下文。
-   * KeepAlive 切换不调用此逻辑，避免返回页面后频繁重建上下文。
-   */
-  const stop = () => {
-    isClosed = true
-    if (audioContext?.close) {
-      void audioContext.close()
-    }
-    audioContext = null
-  }
-
-  return {
-    playStep,
-    playPattern,
-    stop,
-  }
-}
+export { getSolveCompletePattern, getSolveStepFrequency, getValidationSuccessPattern }
 
 /**
  * 数独模块总控制器。
@@ -234,7 +110,7 @@ export function useSudoku() {
     await new Promise(resolve => setTimeout(resolve, 300))
     if (runId !== solveRunId) return
     if (!isSuccess.value) {
-      alert('验证失败：盘面存在冲突或未填满！')
+      pushNotification('error', '验证失败：盘面存在冲突或未填满！')
     } else {
       void solveAudio.playPattern(getValidationSuccessPattern())
       for (let r = 0; r < 9; r++) {
@@ -254,12 +130,12 @@ export function useSudoku() {
   const solveWithAnimation = async () => {
     if (isSolving.value || isValidating.value) return
     if (isSettingUp.value) {
-      alert('请先点击“确认题目”后再进行自动解算。')
+      pushNotification('info', '请先点击“确认题目”后再进行自动解算。')
       return
     }
     const maskState = Sudoku.initializeMasks(grid.value)
     if (!maskState) {
-      alert('该布局无解！')
+      pushNotification('error', '该布局无解！')
       return
     }
     isSolving.value = true
@@ -274,7 +150,7 @@ export function useSudoku() {
       void solveAudio.playPattern(getSolveCompletePattern())
       await runValidationAnimation(runId)
     }
-    else alert('该布局无解！')
+    else pushNotification('error', '该布局无解！')
   }
 
   /**
@@ -287,7 +163,7 @@ export function useSudoku() {
     if (isSettingUp.value) {
       if (num === 0) { setCell(r, c, 0); return }
       if (!Sudoku.isValid(grid.value, r, c, num)) {
-        alert(`题目冲突：在当前位置填入 ${num} 会导致题目本身不合法！`)
+        pushNotification('error', `题目冲突：在当前位置填入 ${num} 会导致题目本身不合法！`)
         return
       }
       setCell(r, c, num); return
@@ -306,23 +182,23 @@ export function useSudoku() {
    */
   const confirmCustomPuzzle = () => {
     if (!Sudoku.validateInitialGrid(grid.value)) {
-      alert('题目校验失败：该布局存在冲突！')
+      pushNotification('error', '题目校验失败：该布局存在冲突！')
       return
     }
     const solCount = Sudoku.countSolutions(grid.value)
-    if (solCount === 0) alert('题目校验失败：该布局无解！')
-    else if (solCount > 1) alert('题目校验失败：该布局存在多个解！')
+    if (solCount === 0) pushNotification('error', '题目校验失败：该布局无解！')
+    else if (solCount > 1) pushNotification('error', '题目校验失败：该布局存在多个解！')
     else {
       const tempGrid = grid.value.map(r => [...r])
       if (!Sudoku.solve(tempGrid)) {
-        alert('题目校验失败：该布局无解！')
+        pushNotification('error', '题目校验失败：该布局无解！')
         return
       }
       solutionSnapshot.value = tempGrid.map((row) => [...row])
       lockMask.value = grid.value.map(r => r.map(cell => cell !== 0))
       solveType.value = grid.value.map(r => r.map(() => 0))
       isSettingUp.value = false
-      alert('题目确认成功！')
+      pushNotification('success', '题目确认成功！')
     }
   }
 

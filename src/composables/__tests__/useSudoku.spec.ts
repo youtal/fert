@@ -12,6 +12,7 @@ import {
   getValidationSuccessPattern,
   useSudoku,
 } from '../useSudoku'
+import { clearNotifications, useAppNotifications } from '@/composables/useAppNotifications'
 import { Sudoku } from '@/utils/sudoku'
 import { defineComponent, h, KeepAlive, nextTick, ref } from 'vue'
 
@@ -29,6 +30,7 @@ describe('useSudoku (逻辑钩子) 测试', () => {
 
   beforeEach(() => {
     vi.useFakeTimers()
+    clearNotifications()
 
     /**
      * 音频参数 mock。
@@ -77,6 +79,7 @@ describe('useSudoku (逻辑钩子) 测试', () => {
 
   afterEach(() => {
     vi.useRealTimers()
+    clearNotifications()
     Reflect.deleteProperty(window, 'AudioContext')
   })
 
@@ -205,5 +208,30 @@ describe('useSudoku (逻辑钩子) 测试', () => {
     const resumed = wrapper.findComponent(Child).vm as any
     expect(Sudoku.validateFullGrid(resumed.grid)).toBe(true)
     expect(resumed.isSolving).toBe(false)
+  })
+
+  it('设置自定义题目期间直接解算时，应改为发出提示通知而不是阻塞弹窗', async () => {
+    const wrapper = mount(TestComponent)
+    const { clearAll, solveWithAnimation } = wrapper.vm as any
+    const { notifications } = useAppNotifications()
+
+    clearAll()
+    await solveWithAnimation()
+
+    expect(notifications.value[notifications.value.length - 1]?.message).toBe('请先点击“确认题目”后再进行自动解算。')
+  })
+
+  it('自定义题面输入冲突时，应发出错误通知', () => {
+    const wrapper = mount(TestComponent)
+    const { clearAll, selectCell, fillNumber } = wrapper.vm as any
+    const { notifications } = useAppNotifications()
+
+    clearAll()
+    selectCell(0, 0)
+    fillNumber(1)
+    selectCell(0, 1)
+    fillNumber(1)
+
+    expect(notifications.value[notifications.value.length - 1]?.message).toContain('题目冲突')
   })
 })
