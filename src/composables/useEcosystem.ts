@@ -5,10 +5,18 @@
  * 仿真推进与前台渲染分离：
  * 1. 仿真始终在后台持续推进。
  * 2. 仅在视图激活时执行 Canvas 绘制。
+ *
+ * 当前实现把运行时提升为模块级单例，显式表达“全应用只允许一个生态系统纪元”。
+ * 这样可以避免未来重复挂载或错误复用时创建多套后台时钟。
  */
 import { ref, onMounted, onUnmounted, onActivated, onDeactivated, type Ref } from 'vue'
 import { Particle, Predator, CONFIG, SpatialHash } from '@/models/Ecosystem'
 import { useEcosystemStore } from '@/stores/ecosystem'
+
+type EcosystemRuntime = ReturnType<typeof createEcosystemRuntime>
+
+let sharedRuntime: EcosystemRuntime | null = null
+let runtimeConsumers = 0
 
 /**
  * useEcosystem 把生态系统分为两个时钟：
@@ -17,14 +25,57 @@ import { useEcosystemStore } from '@/stores/ecosystem'
  */
 export function useEcosystem() {
   const store = useEcosystemStore()
+  const runtime = sharedRuntime ?? createEcosystemRuntime(store)
+  sharedRuntime = runtime
+  runtimeConsumers++
+
+  const canvasRef = ref<HTMLCanvasElement | null>(null)
+  const containerRef = ref<HTMLDivElement | null>(null)
+
+  /**
+   * 接收渲染层暴露出的 DOM ref，并完成首次初始化。
+   * 这里统一绑定 ResizeObserver，避免视图组件自己感知尺寸细节。
+   */
+  const setRefs = (canvas: Ref<HTMLCanvasElement | null>, container: Ref<HTMLDivElement | null>) => {
+    canvasRef.value = canvas.value
+    containerRef.value = container.value
+    runtime.bindRefs(canvasRef.value, containerRef.value)
+  }
+
+  onMounted(() => {
+    // 组件首次挂载时尝试恢复绘制；真正的仿真启动仍依赖 setRefs 提供真实 DOM。
+    runtime.activateRendering()
+  })
+
+  onActivated(() => {
+    runtime.handleResize()
+    runtime.activateRendering()
+  })
+
+  onDeactivated(() => {
+    runtime.deactivateRendering()
+  })
+
+  onUnmounted(() => {
+    runtimeConsumers--
+    if (runtimeConsumers <= 0) {
+      runtime.dispose()
+      sharedRuntime = null
+      runtimeConsumers = 0
+    }
+  })
+
+  return { mouse: runtime.mouse, setRefs }
+}
+
+const createEcosystemRuntime = (store: ReturnType<typeof useEcosystemStore>) => {
   const particles: Particle[] = []
   const predators: Predator[] = []
   const mouse = { x: 0, y: 0, active: false }
   const spatialHash = new SpatialHash<Particle>(CONFIG.PERCEPTION_RADIUS)
 
-  const canvasRef = ref<HTMLCanvasElement | null>(null)
-  const containerRef = ref<HTMLDivElement | null>(null)
-
+  let canvas: HTMLCanvasElement | null = null
+  let container: HTMLDivElement | null = null
   let renderFrame: number | undefined
   let simulationTimer: ReturnType<typeof setInterval> | undefined
   let resizeObserver: ResizeObserver | undefined
@@ -33,18 +84,19 @@ export function useEcosystem() {
   let restartStatusTimeout: ReturnType<typeof setTimeout> | undefined
   let restartSimulationTimeout: ReturnType<typeof setTimeout> | undefined
   let isRenderActive = false
+  let hasBoundRefs = false
 
   /**
    * 让 canvas 分辨率与容器实际像素尺寸同步。
    * 若不在这里做同步，CSS 缩放后的画布会导致坐标和清晰度都出现偏差。
    */
   const handleResize = () => {
-    if (!canvasRef.value || !containerRef.value) return
-    const width = containerRef.value.clientWidth
-    const height = containerRef.value.clientHeight
+    if (!canvas || !container) return
+    const width = container.clientWidth
+    const height = container.clientHeight
     if (width > 0 && height > 0) {
-      canvasRef.value.width = width
-      canvasRef.value.height = height
+      canvas.width = width
+      canvas.height = height
     }
   }
 
@@ -53,7 +105,6 @@ export function useEcosystem() {
    * 这个入口既用于首次启动，也用于崩溃后的自动重启，因此会显式重置运行统计与实体数组。
    */
   const startEcosystem = () => {
-    const canvas = canvasRef.value
     if (!canvas) return
 
     if (restartStatusTimeout) clearTimeout(restartStatusTimeout)
@@ -102,7 +153,6 @@ export function useEcosystem() {
    * 顺序为：同步时间 -> 刷新空间索引 -> 更新全局状态 -> 更新捕食者 -> 更新猎物。
    */
   const stepSimulation = (timestamp: number) => {
-    const canvas = canvasRef.value
     if (!canvas) return
 
     let deltaTime = timestamp - lastSimulationTime
@@ -185,10 +235,7 @@ export function useEcosystem() {
    * 该函数只读取当前实体快照进行绘制，不负责改变实体状态。
    */
   const renderScene = () => {
-    if (!isRenderActive) return
-
-    const canvas = canvasRef.value
-    if (!canvas) return
+    if (!isRenderActive || !canvas) return
     const ctx = canvas.getContext('2d')
     if (!ctx) return
 
@@ -247,8 +294,8 @@ export function useEcosystem() {
    * 开启前台渲染循环。
    * 与仿真循环分离后，这里只在页面可见时运行，降低切页后的绘制开销。
    */
-  const startRendering = () => {
-    if (isRenderActive) return
+  const activateRendering = () => {
+    if (isRenderActive || !canvas) return
     isRenderActive = true
     renderFrame = requestAnimationFrame(renderScene)
   }
@@ -257,7 +304,7 @@ export function useEcosystem() {
    * 停止前台渲染循环，但保留仿真。
    * 这是 KeepAlive 场景下“切走仍继续计算”的关键之一。
    */
-  const stopRendering = () => {
+  const deactivateRendering = () => {
     isRenderActive = false
     if (renderFrame !== undefined) {
       cancelAnimationFrame(renderFrame)
@@ -266,46 +313,54 @@ export function useEcosystem() {
   }
 
   /**
-   * 接收渲染层暴露出的 DOM ref，并完成首次初始化。
-   * 这里统一绑定 ResizeObserver，避免视图组件自己感知尺寸细节。
+   * 单例运行时只接受第一组有效 DOM 引用。
+   * 之后若有第二个实例尝试接管画布，则直接拒绝并保留原运行时，避免出现多套后台循环。
    */
-  const setRefs = (canvas: Ref<HTMLCanvasElement | null>, container: Ref<HTMLDivElement | null>) => {
-    canvasRef.value = canvas.value
-    containerRef.value = container.value
+  const bindRefs = (nextCanvas: HTMLCanvasElement | null, nextContainer: HTMLDivElement | null) => {
+    if (!nextCanvas || !nextContainer) return
+
+    if (hasBoundRefs && (canvas !== nextCanvas || container !== nextContainer)) {
+      console.warn('[useEcosystem] duplicate runtime binding ignored; ecosystem is a singleton view.')
+      return
+    }
+
+    canvas = nextCanvas
+    container = nextContainer
+    hasBoundRefs = true
 
     if (resizeObserver) resizeObserver.disconnect()
-    if (containerRef.value) {
-      handleResize()
-      resizeObserver = new ResizeObserver(handleResize)
-      resizeObserver.observe(containerRef.value)
-    }
+    handleResize()
+    resizeObserver = new ResizeObserver(handleResize)
+    resizeObserver.observe(container)
 
     startEcosystem()
     startSimulation()
-    startRendering()
+    activateRendering()
   }
 
-  onMounted(() => {
-    // 组件首次挂载时尝试恢复绘制；真正的仿真启动仍依赖 setRefs 提供真实 DOM。
-    startRendering()
-  })
-
-  onActivated(() => {
-    handleResize()
-    startRendering()
-  })
-
-  onDeactivated(() => {
-    stopRendering()
-  })
-
-  onUnmounted(() => {
-    stopRendering()
+  const dispose = () => {
+    deactivateRendering()
     stopSimulation()
+    hasBoundRefs = false
+    canvas = null
+    container = null
+    particles.length = 0
+    predators.length = 0
+    mouse.active = false
     if (resizeObserver) resizeObserver.disconnect()
+    resizeObserver = undefined
     if (restartStatusTimeout) clearTimeout(restartStatusTimeout)
     if (restartSimulationTimeout) clearTimeout(restartSimulationTimeout)
-  })
+    restartStatusTimeout = undefined
+    restartSimulationTimeout = undefined
+  }
 
-  return { mouse, setRefs }
+  return {
+    mouse,
+    bindRefs,
+    handleResize,
+    activateRendering,
+    deactivateRendering,
+    dispose,
+  }
 }

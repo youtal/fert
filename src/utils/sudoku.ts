@@ -73,9 +73,9 @@ export class Sudoku {
     if (!rowValues) return false
 
     for (let index = 0; index < 9; index++) {
-      if (rowValues[index] === num) return false
+      if (index !== col && rowValues[index] === num) return false
       const otherRow = getRow(grid, index)
-      if (otherRow && otherRow[col] === num) return false
+      if (index !== row && otherRow && otherRow[col] === num) return false
     }
 
     const startRow = Math.floor(row / 3) * 3
@@ -84,7 +84,9 @@ export class Sudoku {
       const blockRow = getRow(grid, startRow + rowOffset)
       if (!blockRow) continue
       for (let colOffset = 0; colOffset < 3; colOffset++) {
-        if (blockRow[startCol + colOffset] === num) return false
+        const currentRow = startRow + rowOffset
+        const currentCol = startCol + colOffset
+        if ((currentRow !== row || currentCol !== col) && blockRow[currentCol] === num) return false
       }
     }
 

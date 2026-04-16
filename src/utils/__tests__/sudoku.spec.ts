@@ -27,6 +27,11 @@ describe('Sudoku 核心算法测试', () => {
       expect(Sudoku.isValid(emptyGrid, 4, 4, 9)).toBe(true)
     })
 
+    it('当前位置已经是同一数字时，不应把自己判定为冲突', () => {
+      if (emptyGrid[0]) emptyGrid[0][0] = 5
+      expect(Sudoku.isValid(emptyGrid, 0, 0, 5)).toBe(true)
+    })
+
     it('同一行不能有重复数字', () => {
       if (emptyGrid[0]) emptyGrid[0][0] = 5
       expect(Sudoku.isValid(emptyGrid, 0, 5, 5)).toBe(false)

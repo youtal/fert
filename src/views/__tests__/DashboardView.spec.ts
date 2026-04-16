@@ -22,7 +22,7 @@ describe('DashboardView (项目介绍页) 测试', () => {
 
     expect(wrapper.find('.waterfall').exists()).toBe(true)
     expect(wrapper.findAll('.intro-card').length).toBeGreaterThanOrEqual(6)
-    expect(wrapper.find('.metric-value').text()).toBe('60')
+    expect(wrapper.find('.metric-value').text()).toBe('Pass')
   })
 
   it('不应再渲染旧版仪表盘文案', () => {

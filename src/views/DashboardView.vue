@@ -44,9 +44,9 @@ const introCards = [
     tone: 'metric',
     eyebrow: 'Quality Gate',
     body: '项目当前把类型检查、单测和构建都作为日常门禁，确保重构不会悄悄破坏行为。',
-    metricLabel: 'Tests',
-    metricValue: '60',
-    metricFootnote: '全量测试用例',
+    metricLabel: 'Gate',
+    metricValue: 'Pass',
+    metricFootnote: 'Vitest / Type Check / Build',
   },
   {
     title: '代码组织',

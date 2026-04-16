@@ -109,5 +109,71 @@ describe('useEcosystem', () => {
     await vi.advanceTimersByTimeAsync(100)
 
     expect(clearRect.mock.calls.length).toBeGreaterThan(renderCallsAfterDeactivate)
+    wrapper.unmount()
+  })
+
+  it('重复挂载时不应创建第二套后台仿真时钟', async () => {
+    const setIntervalSpy = vi.spyOn(globalThis, 'setInterval')
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    const clearRect = vi.fn()
+    const mockContext = {
+      clearRect,
+      beginPath: vi.fn(),
+      arc: vi.fn(),
+      fill: vi.fn(),
+      stroke: vi.fn(),
+      moveTo: vi.fn(),
+      lineTo: vi.fn(),
+      save: vi.fn(),
+      restore: vi.fn(),
+      translate: vi.fn(),
+      scale: vi.fn(),
+      shadowBlur: 0,
+      shadowColor: '',
+      fillStyle: '',
+      strokeStyle: '',
+      lineWidth: 0,
+      globalAlpha: 1,
+    }
+
+    const createCanvasRef = () => ref({
+      getContext: vi.fn(() => mockContext),
+      width: 800,
+      height: 600,
+    } as unknown as HTMLCanvasElement)
+
+    const createContainerRef = () => ref({
+      clientWidth: 800,
+      clientHeight: 600,
+    } as unknown as HTMLDivElement)
+
+    const Child = defineComponent({
+      props: {
+        instanceId: {
+          type: Number,
+          required: true,
+        },
+      },
+      setup() {
+        const { setRefs } = useEcosystem()
+        setRefs(createCanvasRef(), createContainerRef())
+        return () => h('div')
+      },
+    })
+
+    const wrapper = mount(defineComponent({
+      render() {
+        return h('div', [h(Child, { instanceId: 1 }), h(Child, { instanceId: 2 })])
+      },
+    }))
+
+    await vi.advanceTimersByTimeAsync(100)
+
+    expect(setIntervalSpy).toHaveBeenCalledTimes(1)
+    expect(warnSpy).toHaveBeenCalledTimes(1)
+    expect(warnSpy.mock.calls[0]?.[0]).toContain('duplicate runtime binding ignored')
+    expect(clearRect).toHaveBeenCalled()
+
+    wrapper.unmount()
   })
 })

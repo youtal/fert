@@ -46,8 +46,8 @@ Fret 是一个基于 Vue 3、Vite、Pinia 与 Vitest 的前端项目，当前聚
   - `npm run type-check`
   - `npm run build`
 - 最新测试状态：
-  - Test Files: 12 passed
-  - Tests: 62 passed
+  - Test Files: 14 passed
+  - Tests: 72 passed
 
 ### 默认首页调整
 
@@ -90,8 +90,8 @@ npm run build
 
 最近一次目标状态：
 
-- Test Files: 12 passed
-- Tests: 62 passed
+- Test Files: 14 passed
+- Tests: 72 passed
 - `type-check`: passed
 - `build`: passed
 
