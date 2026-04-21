@@ -18,7 +18,7 @@ const route = useRoute()
 // 折叠状态下仅在 hover 时切换 Logo 图标，避免常态视觉噪音。
 const isLogoHovered = ref(false)
 
-type RoutePath = '/' | '/particles' | '/sudoku'
+type RoutePath = '/' | '/particles' | '/sudoku' | '/grid'
 
 /**
  * 折叠状态下点击 Logo 代表“展开导航”，
@@ -88,6 +88,15 @@ const navigate = (path: RoutePath) => {
         </div>
         <div class="text-container" :class="{ 'hidden': isCollapsed }">
           <span class="nav-text">数独解算</span>
+        </div>
+      </button>
+
+      <button type="button" class="nav-item" :class="{ active: route.path === '/grid' }" @click="navigate('/grid')" data-tooltip="点阵网格" aria-label="点阵网格">
+        <div class="icon-fixed-wrapper">
+          <img src="@/icons/analysis-dark-mode.svg" class="nav-icon" alt="Grid" />
+        </div>
+        <div class="text-container" :class="{ 'hidden': isCollapsed }">
+          <span class="nav-text">点阵网格</span>
         </div>
       </button>
 

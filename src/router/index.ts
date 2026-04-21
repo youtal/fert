@@ -8,6 +8,7 @@ import { createRouter, createWebHistory } from 'vue-router'
 import DashboardView from '@/views/DashboardView.vue'
 import ParticleView from '@/views/ParticleView.vue'
 import SudokuView from '@/views/SudokuView.vue'
+import GridView from '@/views/GridView.vue'
 
 /**
  * 路由表保持显式静态导入：
@@ -31,6 +32,11 @@ const router = createRouter({
       path: '/sudoku',
       name: 'sudoku',
       component: SudokuView,
+    },
+    {
+      path: '/grid',
+      name: 'grid',
+      component: GridView,
     }
   ],
 })

@@ -71,4 +71,20 @@ describe('Sidebar (侧边栏) 组件测试', () => {
       expect(pushMock).toHaveBeenCalledWith('/particles')
     }
   })
+
+  it('应该提供点阵网格导航入口', async () => {
+    const pushMock = vi.fn()
+    vi.mocked(useRouter).mockReturnValue({ push: pushMock } as any)
+
+    const wrapper = mount(Sidebar, {
+      props: { isCollapsed: false }
+    })
+
+    expect(wrapper.text()).toContain('点阵网格')
+
+    const gridNavItem = wrapper.findAll('.nav-item').find(item => item.text().includes('点阵网格'))
+    await gridNavItem?.trigger('click')
+
+    expect(pushMock).toHaveBeenCalledWith('/grid')
+  })
 })
