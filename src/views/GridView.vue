@@ -6,33 +6,32 @@
  * 这里使用 Canvas 承载 150 * 150 个点，并通过滚轮缩放观察局部结构。
  */
 import { onBeforeUnmount, onMounted, ref } from 'vue'
+import GridControlPanel from '@/components/grid/GridControlPanel.vue'
+import {
+  GRID_SIZE,
+  POINT_COUNT,
+  SEED_DIGITS,
+  WINDOW_SIZE,
+  createRandomSeed,
+  formatSeed,
+  generateNetworkPlan,
+  getPointCol,
+  getPointRow,
+  normalizeSeed as normalizeGridSeed,
+  type CompensationStep,
+  type GridSegment,
+  type GridWindow,
+} from '@/utils/gridNetwork'
 
-const GRID_SIZE = 150
-const POINT_COUNT = GRID_SIZE * GRID_SIZE
 const MIN_ZOOM = 0.12
 const MAX_ZOOM = 12
 const BASE_RADIUS = 6
 const BASE_GAP = BASE_RADIUS * 5
-const LOOP_EDGE_RATIO = 0.08
 const DEFAULT_ANIMATION_SPEED = 140
-const MAX_SEED = 0xffff
-
-type GridDirection = {
-  row: number
-  col: number
-}
-
-type GridSegment = {
-  from: number
-  to: number
-  color: string
-}
-
-type SeededRandom = () => number
 
 const canvasRef = ref<HTMLCanvasElement | null>(null)
 const seedInput = ref('')
-const activeSeed = ref(0)
+const activeSeed = ref('0')
 const isSeedFrozen = ref(false)
 const animationSpeed = ref(DEFAULT_ANIMATION_SPEED)
 let resizeObserver: ResizeObserver | null = null
@@ -49,58 +48,20 @@ let lastPointerX = 0
 let lastPointerY = 0
 let animatedSegmentCount = 0
 let networkSegments: GridSegment[] = []
-
-const directions: GridDirection[] = [
-  { row: -1, col: 0 },
-  { row: 0, col: 1 },
-  { row: 1, col: 0 },
-  { row: 0, col: -1 },
-]
-
-const pathColors = [
-  '#22d3ee',
-  '#a78bfa',
-  '#34d399',
-  '#fbbf24',
-  '#fb7185',
-  '#60a5fa',
-  '#f472b6',
-  '#2dd4bf',
-]
-const DEFAULT_PATH_COLOR = pathColors[0] ?? '#22d3ee'
+let baseSegmentCount = 0
+let compensationSteps: CompensationStep[] = []
+let activeCompensationStepIndex = 0
+let activeWindow: GridWindow | null = null
 
 const clamp = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value))
 
-const createRandomSeed = () => Math.floor(Math.random() * (MAX_SEED + 1))
-
-const formatSeed = (seed: number) => String(seed).padStart(5, '0')
-
 const normalizeSeed = (value: string) => {
-  const seed = Number.parseInt(value, 10)
-  if (!Number.isFinite(seed)) return activeSeed.value
-
-  return Math.round(clamp(seed, 0, MAX_SEED))
+  return normalizeGridSeed(value, activeSeed.value)
 }
 
-const syncSeedInput = (seed: number) => {
+const syncSeedInput = (seed: string) => {
   activeSeed.value = seed
   seedInput.value = formatSeed(seed)
-}
-
-/**
- * 16 位 seed 经 SplitMix 风格扩散后进入 Mulberry32。
- * 同一 seed 会产生完全一致的随机序列，从而得到完全一致的折线方案。
- */
-const createSeededRandom = (seed: number): SeededRandom => {
-  let state = (seed + 0x9e3779b9) >>> 0
-
-  return () => {
-    state = (state + 0x6d2b79f5) >>> 0
-    let mixed = state
-    mixed = Math.imul(mixed ^ (mixed >>> 15), mixed | 1)
-    mixed ^= mixed + Math.imul(mixed ^ (mixed >>> 7), mixed | 61)
-    return ((mixed ^ (mixed >>> 14)) >>> 0) / 4294967296
-  }
 }
 
 const scheduleDraw = () => {
@@ -111,266 +72,56 @@ const scheduleDraw = () => {
   })
 }
 
-const getPointRow = (index: number) => Math.floor(index / GRID_SIZE)
-
-const getPointCol = (index: number) => index % GRID_SIZE
-
-const getPointIndex = (row: number, col: number) => row * GRID_SIZE + col
-
-const getEdgeKey = (from: number, to: number) => from < to ? `${from}:${to}` : `${to}:${from}`
-
-const getRandomInt = (max: number, random: SeededRandom) => Math.floor(random() * max)
-
-const getNormalPathLength = (random: SeededRandom) => {
-  const u = Math.max(random(), Number.EPSILON)
-  const v = Math.max(random(), Number.EPSILON)
-  const standardNormal = Math.sqrt(-2 * Math.log(u)) * Math.cos(Math.PI * 2 * v)
-
-  return Math.round(clamp(72 + standardNormal * 28, 18, 160))
-}
-
-const getRandomUnvisitedPoint = (visited: Uint8Array, random: SeededRandom) => {
-  for (let attempt = 0; attempt < 96; attempt += 1) {
-    const candidate = getRandomInt(POINT_COUNT, random)
-    if (!visited[candidate]) return candidate
-  }
-
-  for (let index = 0; index < POINT_COUNT; index += 1) {
-    if (!visited[index]) return index
-  }
-
-  return -1
-}
-
-const getWeightedDirection = (current: number, previousDirection: GridDirection | null, covered: Uint8Array, random: SeededRandom) => {
-  const row = getPointRow(current)
-  const col = getPointCol(current)
-  const candidates = directions
-    .filter((direction) => {
-      if (previousDirection && direction.row === -previousDirection.row && direction.col === -previousDirection.col) {
-        return false
-      }
-
-      const nextRow = row + direction.row
-      const nextCol = col + direction.col
-      return nextRow >= 0 && nextRow < GRID_SIZE && nextCol >= 0 && nextCol < GRID_SIZE
-    })
-    .map((direction) => {
-      const next = getPointIndex(row + direction.row, col + direction.col)
-      const straightBias = previousDirection && direction.row === previousDirection.row && direction.col === previousDirection.col ? 2.2 : 1
-      const unvisitedBias = covered[next] ? 0.75 : 1.4
-
-      return {
-        direction,
-        next,
-        weight: straightBias * unvisitedBias,
-      }
-  })
-
-  const totalWeight = candidates.reduce((sum, candidate) => sum + candidate.weight, 0)
-  let cursor = random() * totalWeight
-
-  for (const candidate of candidates) {
-    cursor -= candidate.weight
-    if (cursor <= 0) return candidate
-  }
-
-  return candidates[candidates.length - 1] ?? null
-}
-
-const findNearbyConnectedPoint = (from: number, connectedPoints: number[], random: SeededRandom) => {
-  let bestPoint = connectedPoints[getRandomInt(connectedPoints.length, random)] ?? 0
-  let bestDistance = Number.POSITIVE_INFINITY
-  const fromRow = getPointRow(from)
-  const fromCol = getPointCol(from)
-  const sampleCount = Math.min(80, connectedPoints.length)
-
-  for (let index = 0; index < sampleCount; index += 1) {
-    const candidate = connectedPoints[getRandomInt(connectedPoints.length, random)] ?? bestPoint
-    const distance = Math.abs(fromRow - getPointRow(candidate)) + Math.abs(fromCol - getPointCol(candidate))
-    if (distance < bestDistance) {
-      bestPoint = candidate
-      bestDistance = distance
-    }
-  }
-
-  return bestPoint
-}
-
-const createConnectionPath = (from: number, to: number, random: SeededRandom) => {
-  const path: number[] = []
-  let row = getPointRow(from)
-  let col = getPointCol(from)
-  const targetRow = getPointRow(to)
-  const targetCol = getPointCol(to)
-  const firstAxis = random() < 0.5 ? 'row' : 'col'
-
-  const walkRows = () => {
-    while (row !== targetRow) {
-      row += row < targetRow ? 1 : -1
-      path.push(getPointIndex(row, col))
-    }
-  }
-
-  const walkCols = () => {
-    while (col !== targetCol) {
-      col += col < targetCol ? 1 : -1
-      path.push(getPointIndex(row, col))
-    }
-  }
-
-  if (firstAxis === 'row') {
-    walkRows()
-    walkCols()
-  } else {
-    walkCols()
-    walkRows()
-  }
-
-  return path
-}
-
-const generateNetworkSegments = (seed: number) => {
-  const random = createSeededRandom(seed)
-  const covered = new Uint8Array(POINT_COUNT)
-  const connectedPoints: number[] = []
-  const edgeKeys = new Set<string>()
-  const segments: GridSegment[] = []
-  let connectedCount = 0
-  let pathIndex = 0
-
-  const markCovered = (point: number) => {
-    if (covered[point]) return
-
-    covered[point] = 1
-    connectedPoints.push(point)
-    connectedCount += 1
-  }
-
-  const addSegment = (from: number, to: number, color: string) => {
-    if (from === to) return false
-
-    const edgeKey = getEdgeKey(from, to)
-    if (edgeKeys.has(edgeKey)) return false
-
-    edgeKeys.add(edgeKey)
-    segments.push({ from, to, color })
-    return true
-  }
-
-  markCovered(getRandomInt(POINT_COUNT, random))
-
-  while (connectedCount < POINT_COUNT) {
-    const start = getRandomUnvisitedPoint(covered, random)
-    if (start < 0) break
-
-    const color = pathColors[pathIndex % pathColors.length] ?? DEFAULT_PATH_COLOR
-    const maxLength = getNormalPathLength(random)
-    let current = start
-    let previousDirection: GridDirection | null = null
-    let hasReachedNetwork = false
-    const pathPoints = [current]
-    const localPoints = new Set<number>(pathPoints)
-
-    const pushLocalPoint = (point: number) => {
-      if (localPoints.has(point)) return
-
-      localPoints.add(point)
-      pathPoints.push(point)
-    }
-
-    for (let step = 0; step < maxLength; step += 1) {
-      const candidate = getWeightedDirection(current, previousDirection, covered, random)
-      if (!candidate) break
-
-      addSegment(current, candidate.next, color)
-      current = candidate.next
-      previousDirection = candidate.direction
-
-      if (covered[current]) {
-        hasReachedNetwork = true
-        break
-      }
-
-      pushLocalPoint(current)
-    }
-
-    if (!hasReachedNetwork && connectedPoints.length > 1) {
-      const target = findNearbyConnectedPoint(current, connectedPoints, random)
-      const connectionPath = createConnectionPath(current, target, random)
-
-      for (const next of connectionPath) {
-        addSegment(current, next, color)
-        current = next
-
-        if (!covered[next]) {
-          pushLocalPoint(next)
-        }
-
-        if (next === target) break
-      }
-    }
-
-    for (const point of pathPoints) {
-      markCovered(point)
-    }
-
-    pathIndex += 1
-  }
-
-  const loopTarget = Math.floor(POINT_COUNT * LOOP_EDGE_RATIO)
-  let loopEdges = 0
-  let attempts = 0
-
-  while (loopEdges < loopTarget && attempts < loopTarget * 28) {
-    attempts += 1
-
-    const from = getRandomInt(POINT_COUNT, random)
-    const row = getPointRow(from)
-    const col = getPointCol(from)
-    const validDirections = directions.filter((direction) => {
-      const nextRow = row + direction.row
-      const nextCol = col + direction.col
-      return nextRow >= 0 && nextRow < GRID_SIZE && nextCol >= 0 && nextCol < GRID_SIZE
-    })
-    const direction = validDirections[getRandomInt(validDirections.length, random)]
-    if (!direction) continue
-
-    const to = getPointIndex(row + direction.row, col + direction.col)
-    const color = pathColors[(pathIndex + loopEdges) % pathColors.length] ?? DEFAULT_PATH_COLOR
-
-    if (addSegment(from, to, color)) {
-      loopEdges += 1
-    }
-  }
-
-  return segments
-}
-
 const startGrowthAnimation = () => {
   if (growthFrameId) {
     window.cancelAnimationFrame(growthFrameId)
   }
 
   animatedSegmentCount = 0
+  activeWindow = null
+  activeCompensationStepIndex = 0
 
   const grow = () => {
-    animatedSegmentCount = Math.min(animatedSegmentCount + animationSpeed.value, networkSegments.length)
-    scheduleDraw()
-
-    if (animatedSegmentCount < networkSegments.length) {
+    if (animatedSegmentCount < baseSegmentCount) {
+      animatedSegmentCount = Math.min(animatedSegmentCount + animationSpeed.value, baseSegmentCount)
+      activeWindow = null
+      scheduleDraw()
       growthFrameId = window.requestAnimationFrame(grow)
       return
     }
 
-    growthFrameId = 0
+    const activeStep = compensationSteps[activeCompensationStepIndex]
+    if (!activeStep) {
+      activeWindow = null
+      scheduleDraw()
+      growthFrameId = 0
+      return
+    }
+
+    activeWindow = activeStep.window
+    animatedSegmentCount = Math.min(animatedSegmentCount + activeStep.segments.length, networkSegments.length)
+    activeCompensationStepIndex += 1
+    scheduleDraw()
+
+    if (activeCompensationStepIndex < compensationSteps.length) {
+      growthFrameId = window.requestAnimationFrame(grow)
+      return
+    }
+
+    growthFrameId = window.requestAnimationFrame(grow)
   }
 
   growthFrameId = window.requestAnimationFrame(grow)
 }
 
-const regenerateNetwork = (seed: number) => {
-  networkSegments = generateNetworkSegments(seed)
+const regenerateNetwork = (seed: string) => {
+  const plan = generateNetworkPlan(seed)
+  baseSegmentCount = plan.baseSegments.length
+  compensationSteps = plan.compensationSteps
+  networkSegments = [
+    ...plan.baseSegments,
+    ...plan.compensationSteps.flatMap((step) => step.segments),
+  ]
   startGrowthAnimation()
   scheduleDraw()
 }
@@ -444,6 +195,20 @@ const drawGrid = () => {
   const baseX = viewportWidth / 2 + originX - (gridWorldSize * zoom) / 2
   const baseY = viewportHeight / 2 + originY - (gridWorldSize * zoom) / 2
   const lineWidth = clamp(BASE_RADIUS * 0.55 * zoom, 1, 10)
+
+  if (activeWindow) {
+    const windowX = baseX + activeWindow.left * gap
+    const windowY = baseY + activeWindow.top * gap
+    const windowSize = (WINDOW_SIZE - 1) * gap
+
+    context.globalAlpha = 0.16
+    context.fillStyle = '#fbbf24'
+    context.fillRect(windowX - dotRadius, windowY - dotRadius, windowSize + dotRadius * 2, windowSize + dotRadius * 2)
+    context.globalAlpha = 0.72
+    context.strokeStyle = '#fde68a'
+    context.lineWidth = clamp(BASE_RADIUS * 0.35 * zoom, 1, 5)
+    context.strokeRect(windowX - dotRadius, windowY - dotRadius, windowSize + dotRadius * 2, windowSize + dotRadius * 2)
+  }
 
   context.lineWidth = lineWidth
   context.lineCap = 'round'
@@ -613,52 +378,17 @@ onBeforeUnmount(() => {
       aria-hidden="true"
     ></canvas>
 
-    <aside class="control-card" @pointerdown.stop @wheel.stop>
-      <div class="control-header">
-        <div>
-          <p class="control-kicker">Seed Control</p>
-          <h1>折线生长</h1>
-        </div>
-        <button
-          type="button"
-          class="icon-button"
-          :class="{ active: isSeedFrozen }"
-          :aria-label="isSeedFrozen ? '解除种子冻结' : '冻结种子'"
-          :title="isSeedFrozen ? '解除种子冻结' : '冻结种子'"
-          @click="isSeedFrozen = !isSeedFrozen"
-        >
-          {{ isSeedFrozen ? '◆' : '◇' }}
-        </button>
-      </div>
-
-      <label class="control-field">
-        <span>种子</span>
-        <input
-          v-model="seedInput"
-          type="number"
-          min="0"
-          :max="MAX_SEED"
-          inputmode="numeric"
-          @change="replayNetwork"
-          @blur="applySeedFromInput"
-        />
-      </label>
-
-      <label class="control-field">
-        <span>速度</span>
-        <input
-          v-model.number="animationSpeed"
-          type="range"
-          min="40"
-          max="420"
-          step="20"
-        />
-      </label>
-
-      <button type="button" class="reset-button" @click="resetNetwork">
-        重置
-      </button>
-    </aside>
+    <!-- 控制面板复用共享浮层，GridView 只负责响应用户意图并重新生成网络。 -->
+    <GridControlPanel
+      v-model:seed="seedInput"
+      v-model:animation-speed="animationSpeed"
+      :seed-digits="SEED_DIGITS"
+      :is-seed-frozen="isSeedFrozen"
+      @toggle-freeze="isSeedFrozen = !isSeedFrozen"
+      @apply-seed="applySeedFromInput"
+      @replay="replayNetwork"
+      @reset="resetNetwork"
+    />
   </section>
 </template>
 
@@ -686,113 +416,5 @@ onBeforeUnmount(() => {
 
 .grid-canvas:active {
   cursor: grabbing;
-}
-
-.control-card {
-  position: absolute;
-  top: 1.5rem;
-  right: 1.5rem;
-  width: 260px;
-  padding: 1rem;
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 18px;
-  background: rgba(15, 23, 42, 0.78);
-  box-shadow: 0 18px 48px rgba(2, 6, 23, 0.38);
-  backdrop-filter: blur(14px);
-  z-index: 20;
-}
-
-.control-header {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 1rem;
-  margin-bottom: 1rem;
-}
-
-.control-kicker {
-  color: #2dd4bf;
-  font-size: 0.72rem;
-  letter-spacing: 0.16em;
-  text-transform: uppercase;
-  margin-bottom: 0.45rem;
-}
-
-.control-card h1 {
-  color: #f8fafc;
-  font-size: 1.25rem;
-  line-height: 1;
-}
-
-.icon-button {
-  width: 34px;
-  height: 34px;
-  border: 1px solid rgba(125, 211, 252, 0.18);
-  border-radius: 10px;
-  background: rgba(2, 6, 23, 0.38);
-  color: #94a3b8;
-  cursor: pointer;
-  transition:
-    border-color 0.2s,
-    color 0.2s,
-    background 0.2s;
-}
-
-.icon-button.active {
-  border-color: rgba(45, 212, 191, 0.55);
-  background: rgba(20, 184, 166, 0.14);
-  color: #5eead4;
-}
-
-.control-field {
-  display: grid;
-  gap: 0.45rem;
-  margin-bottom: 0.95rem;
-}
-
-.control-field span {
-  color: #94a3b8;
-  font-size: 0.78rem;
-}
-
-.control-field input[type='number'] {
-  width: 100%;
-  height: 38px;
-  padding: 0 0.75rem;
-  border: 1px solid rgba(148, 163, 184, 0.2);
-  border-radius: 10px;
-  background: rgba(2, 6, 23, 0.42);
-  color: #e0f2fe;
-  font: inherit;
-}
-
-.control-field input[type='range'] {
-  width: 100%;
-  accent-color: #2dd4bf;
-}
-
-.reset-button {
-  width: 100%;
-  height: 40px;
-  border: 1px solid rgba(125, 211, 252, 0.22);
-  border-radius: 10px;
-  background: rgba(14, 165, 233, 0.14);
-  color: #e0f2fe;
-  font-weight: 700;
-  cursor: pointer;
-}
-
-.reset-button:hover {
-  border-color: rgba(125, 211, 252, 0.45);
-  background: rgba(14, 165, 233, 0.22);
-}
-
-@media (max-width: 760px) {
-  .control-card {
-    top: 1rem;
-    right: 1rem;
-    left: 1rem;
-    width: auto;
-  }
 }
 </style>

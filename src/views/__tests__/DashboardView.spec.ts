@@ -17,6 +17,7 @@ describe('DashboardView (项目介绍页) 测试', () => {
     expect(wrapper.text()).toContain('Fret 项目介绍')
     expect(wrapper.text()).toContain('生态系统模块')
     expect(wrapper.text()).toContain('Sudoku 模块')
+    expect(wrapper.text()).toContain('点阵网格模块')
     expect(wrapper.text()).toContain('运行时约定')
     expect(wrapper.text()).toContain('开发入口')
 

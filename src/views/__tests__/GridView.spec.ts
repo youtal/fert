@@ -20,11 +20,16 @@ const contextMock = {
   stroke: vi.fn(),
   arc: vi.fn(),
   fillRect: vi.fn(),
+  strokeRect: vi.fn(),
   fill: vi.fn(),
 }
 
+let queuedFrames: FrameRequestCallback[] = []
+
 describe('GridView (二维点阵视图) 测试', () => {
   beforeEach(() => {
+    queuedFrames = []
+    vi.clearAllMocks()
     vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue(contextMock as unknown as CanvasRenderingContext2D)
     vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockReturnValue({
       width: 900,
@@ -38,8 +43,8 @@ describe('GridView (二维点阵视图) 测试', () => {
       toJSON: vi.fn(),
     })
     vi.stubGlobal('requestAnimationFrame', (callback: FrameRequestCallback) => {
-      callback(0)
-      return 0
+      queuedFrames.push(callback)
+      return queuedFrames.length
     })
     vi.stubGlobal('cancelAnimationFrame', vi.fn())
   })
@@ -48,6 +53,11 @@ describe('GridView (二维点阵视图) 测试', () => {
     vi.restoreAllMocks()
     vi.unstubAllGlobals()
   })
+
+  const flushFrame = () => {
+    const callback = queuedFrames.shift()
+    callback?.(0)
+  }
 
   it('应该渲染 150 x 150 点阵画布并移除信息卡片', () => {
     const wrapper = mount(GridView)
@@ -58,25 +68,38 @@ describe('GridView (二维点阵视图) 测试', () => {
     expect(wrapper.find('.grid-summary').exists()).toBe(false)
   })
 
-  it('应该渲染种子、动画速度与重置控制', async () => {
+  it('应该使用共享浮层渲染种子、动画速度与重置控制', async () => {
     const wrapper = mount(GridView)
 
-    expect(wrapper.find('.control-card').exists()).toBe(true)
+    expect(wrapper.find('.panel-group').exists()).toBe(true)
+    expect(wrapper.find('.floating-panel.right-aligned').exists()).toBe(true)
+    expect(wrapper.find('.icon-trigger').attributes('aria-label')).toBe('折线生长控制')
     expect(wrapper.text()).toContain('折线生长')
     expect(wrapper.text()).toContain('种子')
     expect(wrapper.text()).toContain('速度')
 
-    const seedInput = wrapper.find('input[type="number"]')
+    const seedInput = wrapper.find('input[type="text"]')
     const speedInput = wrapper.find('input[type="range"]')
     const freezeButton = wrapper.find('.icon-button')
     const resetButton = wrapper.find('.reset-button')
 
     expect(seedInput.exists()).toBe(true)
+    expect(seedInput.attributes('maxlength')).toBe('16')
     expect(speedInput.exists()).toBe(true)
     expect(resetButton.text()).toBe('重置')
 
     await freezeButton.trigger('click')
     expect(freezeButton.classes()).toContain('active')
+  })
+
+  it('应该具备滑窗检查高亮绘制能力', () => {
+    mount(GridView)
+
+    for (let frame = 0; frame < 520; frame += 1) {
+      flushFrame()
+    }
+
+    expect(contextMock.strokeRect).toHaveBeenCalled()
   })
 
   it('鼠标滚轮缩放时应该重绘点阵', async () => {
@@ -90,6 +113,9 @@ describe('GridView (二维点阵视图) 测试', () => {
       clientY: 350,
       cancelable: true,
     }))
+    for (let frame = 0; frame < 4; frame += 1) {
+      flushFrame()
+    }
 
     expect(contextMock.arc.mock.calls.length).toBeGreaterThan(drawCount)
   })
@@ -118,6 +144,9 @@ describe('GridView (二维点阵视图) 测试', () => {
       clientX: 320,
       clientY: 280,
     }))
+    for (let frame = 0; frame < 4; frame += 1) {
+      flushFrame()
+    }
 
     expect(contextMock.arc.mock.calls.length).toBeGreaterThan(drawCount)
     expect(canvas.setPointerCapture).toHaveBeenCalledWith(1)

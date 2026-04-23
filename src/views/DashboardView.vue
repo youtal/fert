@@ -15,7 +15,7 @@ const introCards = [
     title: 'Fret 项目概览',
     tone: 'hero',
     eyebrow: 'Project Intro',
-    body: '一个围绕生态系统仿真与数独解算构建的前端实验场，重点展示持续运行视图、可视化反馈和前端算法表现。',
+    body: '一个围绕生态系统仿真、数独解算与点阵网络生成构建的前端实验场，重点展示持续运行视图、可视化反馈和前端算法表现。',
     points: ['Vue 3 + Vite + Pinia + Vitest', '会话级 KeepAlive 生命周期', '模块化视图、组件与 composable 分层'],
   },
   {
@@ -33,6 +33,13 @@ const introCards = [
     points: ['随机题目与自定义题目都保留答案副本', '自动解算不依赖答案副本', '用户输入即时显示正确 / 错误反馈'],
   },
   {
+    title: '点阵网格模块',
+    tone: 'feature',
+    eyebrow: 'Grid Network',
+    body: '150 x 150 点阵通过可复现 seed 生成连接方案，滑窗检查会补偿局部几何近邻之间过长的网络路径。',
+    points: ['固定 seed 可复现网络', 'Canvas 仅绘制视口内点阵', '控制面板复用统一浮层交互'],
+  },
+  {
     title: '运行时约定',
     tone: 'note',
     eyebrow: 'Lifecycle',
@@ -43,7 +50,7 @@ const introCards = [
     title: '工程质量',
     tone: 'metric',
     eyebrow: 'Quality Gate',
-    body: '项目当前把类型检查、单测和构建都作为日常门禁，确保重构不会悄悄破坏行为。',
+    body: '项目当前把类型检查、单测和构建都作为日常门禁，Grid 网络生成器也有独立确定性测试保护。',
     metricLabel: 'Gate',
     metricValue: 'Pass',
     metricFootnote: 'Vitest / Type Check / Build',
@@ -53,7 +60,7 @@ const introCards = [
     tone: 'note',
     eyebrow: 'Structure',
     body: '视图负责编排、组件负责展示、composable 负责控制流、utils / models 负责算法与规则。',
-    points: ['UI 与业务状态分离', '测试覆盖组件与算法两侧', '注释围绕职责和边界补充'],
+    points: ['UI 与业务状态分离', 'Grid 网络生成已脱离视图文件', '注释围绕职责和边界补充'],
   },
   {
     title: '开发入口',
@@ -67,7 +74,7 @@ const introCards = [
     tone: 'feature',
     eyebrow: 'Roadmap',
     body: '当前基础已经适合继续演进，比如接入更真实的数据面板、更多可视化模块，或更强的保存 / 恢复机制。',
-    points: ['运行时持久化', '更丰富的项目介绍内容', '更多算法演示模块'],
+    points: ['运行时持久化', 'Grid seed 分享链接', '更多算法演示模块'],
   },
 ]
 </script>

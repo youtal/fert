@@ -4,10 +4,11 @@
 
 ## 项目概况
 
-Fret 是一个基于 Vue 3、Vite、Pinia 与 Vitest 的前端项目，当前聚焦两个主要模块：
+Fret 是一个基于 Vue 3、Vite、Pinia 与 Vitest 的前端项目，当前聚焦三个主要模块：
 
 - 生态系统仿真：粒子、捕食者、空间哈希和后台持续仿真。
 - Sudoku 解算：题目生成、自动解算、用户输入反馈与动画展示。
+- 点阵网格：150 x 150 点阵、可复现 seed、随机游走网络与滑窗补偿。
 
 ## 当前版本
 
@@ -48,6 +49,18 @@ Fret 是一个基于 Vue 3、Vite、Pinia 与 Vitest 的前端项目，当前聚
 - 最新测试状态：
   - Test Files: 14 passed
   - Tests: 72 passed
+
+### 2026-04-23 细节优化补充
+
+- GridView 控制面板已复用 `FloatingPanelGroup`，和生态系统 / Sudoku 面板保持一致的“默认折叠、悬浮预览、点击锁定”行为。
+- GridView 的点阵网络生成算法已拆出到 `src/utils/gridNetwork.ts`，视图文件只保留 Canvas 绘制、视口交互和面板事件编排。
+- 新增 `src/components/grid/GridControlPanel.vue`，种子输入、速度滑块、冻结与重置按钮集中在独立展示组件中。
+- 全局 caret / cursor 策略已调整为：非输入区域不显示输入光标，真实文本输入控件恢复文本光标，按钮与滑块保持交互指针。
+- 新增 `src/utils/__tests__/gridNetwork.spec.ts`，覆盖 seed 规范化、同 seed 确定性和滑窗补偿追加路径。
+- 已尝试执行 `vitest --coverage`，当前项目未安装 `@vitest/coverage-v8`，因此本轮以测试面审计和新增测试文件补强为主，未产出百分比覆盖率报告。
+- 最近一次目标测试状态已更新为：
+  - Test Files: 15 passed
+  - Tests: 75 passed
 
 ### 默认首页调整
 
@@ -90,8 +103,8 @@ npm run build
 
 最近一次目标状态：
 
-- Test Files: 14 passed
-- Tests: 72 passed
+- Test Files: 15 passed
+- Tests: 75 passed
 - `type-check`: passed
 - `build`: passed
 
@@ -101,6 +114,8 @@ npm run build
 - 视图和组件主要承担编排与展示职责。
 - 任何 Sudoku 用户反馈逻辑都不能反向污染自动解算过程。
 - 生态系统模块应持续保持“后台仿真、前台渲染”的职责分离。
+- GridView 的网络生成逻辑应继续留在 `utils/gridNetwork.ts`，不要回流到视图组件。
+- 除真实文本输入外，静态卡片、棋盘和展示文本不应出现输入光标。
 - 进入 `v0.2.6` 后，粒子演化与数独模块仍维持功能冻结，优先进行稳定性、注释、文档、交互一致性和发布整理类修改。
 
 ## 当前已知事项

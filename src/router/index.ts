@@ -2,7 +2,7 @@
  * router/index.ts
  *
  * 路由层只声明导航映射，不承载权限、懒加载或数据预取逻辑。
- * 当前项目的三张主页面都依赖 KeepAlive 保留运行时状态。
+ * 当前项目的四张主页面都依赖 KeepAlive 保留运行时状态。
  */
 import { createRouter, createWebHistory } from 'vue-router'
 import DashboardView from '@/views/DashboardView.vue'
@@ -37,7 +37,7 @@ const router = createRouter({
       path: '/grid',
       name: 'grid',
       component: GridView,
-    }
+    },
   ],
 })
 

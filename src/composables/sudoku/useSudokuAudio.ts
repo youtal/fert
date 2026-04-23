@@ -1,3 +1,12 @@
+/**
+ * composables/sudoku/useSudokuAudio.ts
+ *
+ * 数独解算音效控制器。
+ * 该文件只封装 Web Audio API 的创建、播放和释放：
+ * 1. 根据剩余空格数计算普通解算步进音高。
+ * 2. 提供解算完成与验证成功的短音阶模式。
+ * 3. 在组件或 composable 结束时关闭 AudioContext，避免后台保留音频资源。
+ */
 const SOLVE_AUDIO_MIN_FREQUENCY = 240
 const SOLVE_AUDIO_MAX_FREQUENCY = 1080
 const SOLVE_COMPLETE_PATTERN = [880, 1100, 1320]
@@ -31,6 +40,10 @@ export const createSolveAudioController = () => {
   let audioContext: AudioContextLike | null = null
   let isClosed = false
 
+  /**
+   * 懒创建 AudioContext。
+   * 浏览器通常要求用户交互后才能恢复音频上下文，因此这里不在模块初始化时提前创建。
+   */
   const getAudioContext = () => {
     if (audioContext || isClosed || typeof window === 'undefined') return audioContext
 
@@ -42,6 +55,10 @@ export const createSolveAudioController = () => {
     return audioContext
   }
 
+  /**
+   * 播放单个短促正弦音。
+   * gain 使用指数包络，避免点击噪声，同时让每一步解算反馈保持轻量。
+   */
   const playStep = async (frequency: number) => {
     const context = getAudioContext()
     if (!context) return
@@ -72,6 +89,10 @@ export const createSolveAudioController = () => {
     oscillator.stop(startTime + 0.12)
   }
 
+  /**
+   * 顺序播放一组音高。
+   * 用于“解算完成”和“验证成功”这类比普通步进更明确的状态反馈。
+   */
   const playPattern = async (pattern: number[]) => {
     for (const [index, frequency] of pattern.entries()) {
       await playStep(frequency)
@@ -81,6 +102,10 @@ export const createSolveAudioController = () => {
     }
   }
 
+  /**
+   * 关闭音频控制器。
+   * 设置 isClosed 后，即便异步回调晚到，也不会重新创建 AudioContext。
+   */
   const stop = () => {
     isClosed = true
     if (audioContext?.close) {
