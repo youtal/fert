@@ -40,3 +40,6 @@ __screenshots__/
 
 # Lockfiles
 package-lock.json
+
+
+.codex
