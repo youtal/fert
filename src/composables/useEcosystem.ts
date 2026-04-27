@@ -313,15 +313,16 @@ const createEcosystemRuntime = (store: ReturnType<typeof useEcosystemStore>) => 
   }
 
   /**
-   * 单例运行时只接受第一组有效 DOM 引用。
-   * 之后若有第二个实例尝试接管画布，则直接拒绝并保留原运行时，避免出现多套后台循环。
+   * 单例运行时只保留一套后台时钟，但允许新的 DOM 引用接管渲染目标。
+   * 这样 HMR、异常重挂载或 KeepAlive 宿主变化时不会继续持有旧 canvas。
    */
   const bindRefs = (nextCanvas: HTMLCanvasElement | null, nextContainer: HTMLDivElement | null) => {
     if (!nextCanvas || !nextContainer) return
 
-    if (hasBoundRefs && (canvas !== nextCanvas || container !== nextContainer)) {
-      console.warn('[useEcosystem] duplicate runtime binding ignored; ecosystem is a singleton view.')
-      return
+    const isRebinding = hasBoundRefs && (canvas !== nextCanvas || container !== nextContainer)
+    if (isRebinding) {
+      deactivateRendering()
+      resizeObserver?.disconnect()
     }
 
     canvas = nextCanvas
@@ -333,7 +334,7 @@ const createEcosystemRuntime = (store: ReturnType<typeof useEcosystemStore>) => 
     resizeObserver = new ResizeObserver(handleResize)
     resizeObserver.observe(container)
 
-    startEcosystem()
+    if (!isRebinding) startEcosystem()
     startSimulation()
     activateRendering()
   }

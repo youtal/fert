@@ -50,6 +50,13 @@ describe('Sudoku 核心算法测试', () => {
       expect(Sudoku.isValid(emptyGrid, 2, 2, 5)).toBe(false)
       expect(Sudoku.isValid(emptyGrid, 2, 2, 6)).toBe(true)
     })
+
+    it('应该拒绝非 1-9 整数的输入值', () => {
+      expect(Sudoku.isValid(emptyGrid, 0, 0, 0)).toBe(false)
+      expect(Sudoku.isValid(emptyGrid, 0, 0, 10)).toBe(false)
+      expect(Sudoku.isValid(emptyGrid, 0, 0, 1.5)).toBe(false)
+      expect(Sudoku.isValid(emptyGrid, 0, 0, Number.NaN)).toBe(false)
+    })
   })
 
   describe('solve 求解逻辑', () => {
@@ -144,6 +151,20 @@ describe('Sudoku 核心算法测试', () => {
       expect(Sudoku.validateInitialGrid(invalidFilledGrid)).toBe(false)
       expect(Sudoku.countSolutions(invalidFilledGrid)).toBe(0)
       expect(Sudoku.solve(invalidFilledGrid)).toBe(false)
+    })
+
+    it('包含非整数或 NaN 的初盘应被视为非法', () => {
+      const decimalGrid = Sudoku.createEmptyGrid()
+      const nanGrid = Sudoku.createEmptyGrid()
+      if (decimalGrid[0]) decimalGrid[0][0] = 1.5
+      if (nanGrid[0]) nanGrid[0][0] = Number.NaN
+
+      expect(Sudoku.validateInitialGrid(decimalGrid)).toBe(false)
+      expect(Sudoku.initializeMasks(decimalGrid)).toBeNull()
+      expect(Sudoku.solve(decimalGrid)).toBe(false)
+      expect(Sudoku.validateInitialGrid(nanGrid)).toBe(false)
+      expect(Sudoku.initializeMasks(nanGrid)).toBeNull()
+      expect(Sudoku.solve(nanGrid)).toBe(false)
     })
   })
 })

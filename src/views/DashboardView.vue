@@ -6,6 +6,8 @@
  * 页面采用瀑布式卡片布局，用于快速介绍模块能力、运行模型与开发约定。
  * 卡片数据集中定义在脚本区，便于后续扩展或替换为配置化来源。
  */
+import BaseCard from '@/components/shared/BaseCard.vue'
+
 /**
  * 首页卡片数据源。
  * 当前保持静态定义，优先保证首页文案与发布信息在版本冻结时稳定可控。
@@ -87,9 +89,10 @@ const introCards = [
     </header>
 
     <div class="waterfall">
-      <article
+      <BaseCard
         v-for="card in introCards"
         :key="card.title"
+        as="article"
         class="intro-card"
         :class="`tone-${card.tone}`"
       >
@@ -110,7 +113,7 @@ const introCards = [
         <div v-if="card.commands" class="command-list">
           <code v-for="command in card.commands" :key="command">{{ command }}</code>
         </div>
-      </article>
+      </BaseCard>
     </div>
   </section>
 </template>
@@ -151,13 +154,6 @@ const introCards = [
   line-height: 0.95;
   color: #f8fafc;
   margin-bottom: 1rem;
-}
-
-.hero-copy {
-  max-width: 680px;
-  color: #cbd5e1;
-  line-height: 1.75;
-  font-size: 1rem;
 }
 
 .waterfall {

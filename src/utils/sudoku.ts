@@ -13,6 +13,12 @@ type MaskState = {
   blocks: Uint16Array
 }
 
+type CandidateCell = {
+  row: number
+  col: number
+  count: number
+}
+
 // 9 个候选数字都可用时的位掩码：二进制 111111111。
 const FULL_MASK = 0x1ff
 
@@ -24,6 +30,9 @@ const getRow = (grid: SudokuGrid, row: number) => grid[row]
 
 // 在需要“试算”时复制棋盘，避免原地修改调用方状态。
 const cloneGrid = (grid: SudokuGrid): SudokuGrid => grid.map((row) => [...row])
+
+// 数独只接受 1-9 的整数作为真实填充值；0 单独表示空格。
+const isSudokuDigit = (value: number) => Number.isInteger(value) && value >= 1 && value <= 9
 
 /**
  * 统计 bitmask 中可用候选的数量。
@@ -55,6 +64,116 @@ const restoreMaskBit = (mask: Uint16Array, index: number, bit: number) => {
   mask[index] = (mask[index] ?? 0) | bit
 }
 
+const getCandidates = (rows: Uint16Array, cols: Uint16Array, blocks: Uint16Array, row: number, col: number) => {
+  return rows[row]! & cols[col]! & blocks[getBlockIndex(row, col)]!
+}
+
+const selectNextCell = (grid: SudokuGrid, rows: Uint16Array, cols: Uint16Array, blocks: Uint16Array): CandidateCell | null => {
+  let target: CandidateCell | null = null
+
+  for (let row = 0; row < 9; row++) {
+    const rowValues = getRow(grid, row)
+    if (!rowValues) continue
+
+    for (let col = 0; col < 9; col++) {
+      if (rowValues[col] !== 0) continue
+      const candidateCount = countBits(getCandidates(rows, cols, blocks, row, col))
+      if (!target || candidateCount < target.count) {
+        target = { row, col, count: candidateCount }
+      }
+      if (candidateCount === 1) break
+    }
+
+    if (target?.count === 1) break
+  }
+
+  return target
+}
+
+const placeCandidate = (
+  grid: SudokuGrid,
+  rows: Uint16Array,
+  cols: Uint16Array,
+  blocks: Uint16Array,
+  row: number,
+  col: number,
+  value: number,
+) => {
+  const rowValues = getRow(grid, row)
+  if (!rowValues) return false
+
+  const bit = 1 << (value - 1)
+  rowValues[col] = value
+  clearMaskBit(rows, row, bit)
+  clearMaskBit(cols, col, bit)
+  clearMaskBit(blocks, getBlockIndex(row, col), bit)
+  return true
+}
+
+const removeCandidate = (
+  grid: SudokuGrid,
+  rows: Uint16Array,
+  cols: Uint16Array,
+  blocks: Uint16Array,
+  row: number,
+  col: number,
+  value: number,
+) => {
+  const rowValues = getRow(grid, row)
+  if (!rowValues) return
+
+  const bit = 1 << (value - 1)
+  rowValues[col] = 0
+  restoreMaskBit(rows, row, bit)
+  restoreMaskBit(cols, col, bit)
+  restoreMaskBit(blocks, getBlockIndex(row, col), bit)
+}
+
+const createPropagationQueue = (grid: SudokuGrid) => {
+  const queue: number[] = []
+  const queued = new Uint8Array(81)
+
+  for (let index = 0; index < 81; index++) {
+    const row = Math.floor(index / 9)
+    const col = index % 9
+    const rowValues = getRow(grid, row)
+    if (!rowValues || rowValues[col] === 0) {
+      queue.push(index)
+    }
+    queued[index] = 1
+  }
+
+  return { queue, queued }
+}
+
+const enqueueAffectedCells = (queue: number[], queued: Uint8Array, row: number, col: number) => {
+  for (let offset = 0; offset < 9; offset++) {
+    const rowIndex = row * 9 + offset
+    if (!queued[rowIndex]) {
+      queue.push(rowIndex)
+      queued[rowIndex] = 1
+    }
+
+    const colIndex = offset * 9 + col
+    if (!queued[colIndex]) {
+      queue.push(colIndex)
+      queued[colIndex] = 1
+    }
+  }
+
+  const blockStartRow = Math.floor(row / 3) * 3
+  const blockStartCol = Math.floor(col / 3) * 3
+  for (let rowOffset = 0; rowOffset < 3; rowOffset++) {
+    for (let colOffset = 0; colOffset < 3; colOffset++) {
+      const blockIndex = (blockStartRow + rowOffset) * 9 + blockStartCol + colOffset
+      if (!queued[blockIndex]) {
+        queue.push(blockIndex)
+        queued[blockIndex] = 1
+      }
+    }
+  }
+}
+
 export class Sudoku {
   /**
    * 创建标准 9x9 空棋盘。
@@ -69,6 +188,8 @@ export class Sudoku {
    * 该方法主要服务自定义题面输入与随机填盘阶段。
    */
   static isValid(grid: SudokuGrid, row: number, col: number, num: number): boolean {
+    if (!isSudokuDigit(num)) return false
+
     const rowValues = getRow(grid, row)
     if (!rowValues) return false
 
@@ -110,7 +231,7 @@ export class Sudoku {
         const value = rowValues[col]
         if (value === undefined) return false
         if (value === 0) continue
-        if (value < 1 || value > 9) return false
+        if (!isSudokuDigit(value)) return false
 
         const block = getBlockIndex(row, col)
         if (rowSets[row]!.has(value) || colSets[col]!.has(value) || blockSets[block]!.has(value)) {
@@ -208,18 +329,7 @@ export class Sudoku {
     blocks: Uint16Array,
     onStep?: (r: number, c: number, v: number, type: 'logic') => Promise<void>,
   ) {
-    const queue: number[] = []
-    const queued = new Uint8Array(81)
-
-    for (let index = 0; index < 81; index++) {
-      const row = Math.floor(index / 9)
-      const col = index % 9
-      const rowValues = getRow(grid, row)
-      if (!rowValues || rowValues[col] === 0) {
-        queue.push(index)
-      }
-      queued[index] = 1
-    }
+    const { queue, queued } = createPropagationQueue(grid)
 
     let head = 0
     while (head < queue.length) {
@@ -233,44 +343,14 @@ export class Sudoku {
       if (rowValues[col] !== 0) continue
 
       queued[index] = 0
-      const block = getBlockIndex(row, col)
-      const candidates = rows[row]! & cols[col]! & blocks[block]!
+      const candidates = getCandidates(rows, cols, blocks, row, col)
       if (!isSingleCandidate(candidates)) continue
 
       const value = firstCandidateValue(candidates)
-      rowValues[col] = value
+      placeCandidate(grid, rows, cols, blocks, row, col, value)
       if (onStep) await onStep(row, col, value, 'logic')
 
-      const bit = 1 << (value - 1)
-      clearMaskBit(rows, row, bit)
-      clearMaskBit(cols, col, bit)
-      clearMaskBit(blocks, block, bit)
-
-      for (let offset = 0; offset < 9; offset++) {
-        const rowIndex = row * 9 + offset
-        if (!queued[rowIndex]) {
-          queue.push(rowIndex)
-          queued[rowIndex] = 1
-        }
-
-        const colIndex = offset * 9 + col
-        if (!queued[colIndex]) {
-          queue.push(colIndex)
-          queued[colIndex] = 1
-        }
-      }
-
-      const blockStartRow = Math.floor(row / 3) * 3
-      const blockStartCol = Math.floor(col / 3) * 3
-      for (let rowOffset = 0; rowOffset < 3; rowOffset++) {
-        for (let colOffset = 0; colOffset < 3; colOffset++) {
-          const blockIndex = (blockStartRow + rowOffset) * 9 + blockStartCol + colOffset
-          if (!queued[blockIndex]) {
-            queue.push(blockIndex)
-            queued[blockIndex] = 1
-          }
-        }
-      }
+      enqueueAffectedCells(queue, queued, row, col)
     }
   }
 
@@ -285,55 +365,25 @@ export class Sudoku {
     blocks: Uint16Array,
     onStep?: (r: number, c: number, v: number, type: 'backtrack') => Promise<void>,
   ): Promise<boolean> {
-    let targetRow = -1
-    let targetCol = -1
-    let minCandidateCount = 10
+    const target = selectNextCell(grid, rows, cols, blocks)
+    if (!target) return true
+    if (target.count === 0) return false
 
-    for (let row = 0; row < 9; row++) {
-      const rowValues = getRow(grid, row)
-      if (!rowValues) continue
-
-      for (let col = 0; col < 9; col++) {
-        if (rowValues[col] !== 0) continue
-        const candidates = rows[row]! & cols[col]! & blocks[getBlockIndex(row, col)]!
-        const candidateCount = countBits(candidates)
-        if (candidateCount < minCandidateCount) {
-          minCandidateCount = candidateCount
-          targetRow = row
-          targetCol = col
-        }
-        if (candidateCount === 1) break
-      }
-
-      if (minCandidateCount === 1) break
-    }
-
-    if (targetRow === -1 || targetCol === -1) return true
-    if (minCandidateCount === 0) return false
-
-    const rowValues = getRow(grid, targetRow)
+    const rowValues = getRow(grid, target.row)
     if (!rowValues) return false
 
-    const block = getBlockIndex(targetRow, targetCol)
-    let candidates = rows[targetRow]! & cols[targetCol]! & blocks[block]!
+    let candidates = getCandidates(rows, cols, blocks, target.row, target.col)
 
     while (candidates > 0) {
       const bit = candidates & -candidates
       const value = firstCandidateValue(bit)
-      rowValues[targetCol] = value
-      if (onStep) await onStep(targetRow, targetCol, value, 'backtrack')
-
-      clearMaskBit(rows, targetRow, bit)
-      clearMaskBit(cols, targetCol, bit)
-      clearMaskBit(blocks, block, bit)
+      placeCandidate(grid, rows, cols, blocks, target.row, target.col, value)
+      if (onStep) await onStep(target.row, target.col, value, 'backtrack')
 
       if (await this.backtrackWithMasks(grid, rows, cols, blocks, onStep)) return true
 
-      rowValues[targetCol] = 0
-      if (onStep) await onStep(targetRow, targetCol, 0, 'backtrack')
-      restoreMaskBit(rows, targetRow, bit)
-      restoreMaskBit(cols, targetCol, bit)
-      restoreMaskBit(blocks, block, bit)
+      removeCandidate(grid, rows, cols, blocks, target.row, target.col, value)
+      if (onStep) await onStep(target.row, target.col, 0, 'backtrack')
       candidates ^= bit
     }
 
@@ -356,18 +406,7 @@ export class Sudoku {
       blocks: blocks.slice(),
     }
 
-    const queue: number[] = []
-    const queued = new Uint8Array(81)
-
-    for (let index = 0; index < 81; index++) {
-      const row = Math.floor(index / 9)
-      const col = index % 9
-      const rowValues = getRow(propagationGrid, row)
-      if (!rowValues || rowValues[col] === 0) {
-        queue.push(index)
-      }
-      queued[index] = 1
-    }
+    const { queue, queued } = createPropagationQueue(propagationGrid)
 
     let head = 0
     while (head < queue.length) {
@@ -381,43 +420,12 @@ export class Sudoku {
       if (rowValues[col] !== 0) continue
 
       queued[index] = 0
-      const block = getBlockIndex(row, col)
-      const candidates = propagationMasks.rows[row]! & propagationMasks.cols[col]! & propagationMasks.blocks[block]!
+      const candidates = getCandidates(propagationMasks.rows, propagationMasks.cols, propagationMasks.blocks, row, col)
       if (!isSingleCandidate(candidates)) continue
 
       const value = firstCandidateValue(candidates)
-      rowValues[col] = value
-
-      const bit = 1 << (value - 1)
-      clearMaskBit(propagationMasks.rows, row, bit)
-      clearMaskBit(propagationMasks.cols, col, bit)
-      clearMaskBit(propagationMasks.blocks, block, bit)
-
-      for (let offset = 0; offset < 9; offset++) {
-        const rowIndex = row * 9 + offset
-        if (!queued[rowIndex]) {
-          queue.push(rowIndex)
-          queued[rowIndex] = 1
-        }
-
-        const colIndex = offset * 9 + col
-        if (!queued[colIndex]) {
-          queue.push(colIndex)
-          queued[colIndex] = 1
-        }
-      }
-
-      const blockStartRow = Math.floor(row / 3) * 3
-      const blockStartCol = Math.floor(col / 3) * 3
-      for (let rowOffset = 0; rowOffset < 3; rowOffset++) {
-        for (let colOffset = 0; colOffset < 3; colOffset++) {
-          const blockIndex = (blockStartRow + rowOffset) * 9 + blockStartCol + colOffset
-          if (!queued[blockIndex]) {
-            queue.push(blockIndex)
-            queued[blockIndex] = 1
-          }
-        }
-      }
+      placeCandidate(propagationGrid, propagationMasks.rows, propagationMasks.cols, propagationMasks.blocks, row, col, value)
+      enqueueAffectedCells(queue, queued, row, col)
     }
 
     /**
@@ -425,49 +433,22 @@ export class Sudoku {
      * 与异步版本共享 MRV 选点策略，但这里不发出动画回调，专注于得到最终答案。
      */
     const backtrackSync = (candidateGrid: SudokuGrid, candidateRows: Uint16Array, candidateCols: Uint16Array, candidateBlocks: Uint16Array): boolean => {
-      let targetRow = -1
-      let targetCol = -1
-      let minCandidateCount = 10
+      const target = selectNextCell(candidateGrid, candidateRows, candidateCols, candidateBlocks)
+      if (!target) return true
+      if (target.count === 0) return false
 
-      for (let row = 0; row < 9; row++) {
-        const rowValues = getRow(candidateGrid, row)
-        if (!rowValues) continue
-        for (let col = 0; col < 9; col++) {
-          if (rowValues[col] !== 0) continue
-          const candidates = candidateRows[row]! & candidateCols[col]! & candidateBlocks[getBlockIndex(row, col)]!
-          const candidateCount = countBits(candidates)
-          if (candidateCount < minCandidateCount) {
-            minCandidateCount = candidateCount
-            targetRow = row
-            targetCol = col
-          }
-          if (candidateCount === 1) break
-        }
-        if (minCandidateCount === 1) break
-      }
-
-      if (targetRow === -1 || targetCol === -1) return true
-      if (minCandidateCount === 0) return false
-
-      const rowValues = getRow(candidateGrid, targetRow)
+      const rowValues = getRow(candidateGrid, target.row)
       if (!rowValues) return false
 
-      const block = getBlockIndex(targetRow, targetCol)
-      let candidates = candidateRows[targetRow]! & candidateCols[targetCol]! & candidateBlocks[block]!
+      let candidates = getCandidates(candidateRows, candidateCols, candidateBlocks, target.row, target.col)
       while (candidates > 0) {
         const bit = candidates & -candidates
         const value = firstCandidateValue(bit)
-        rowValues[targetCol] = value
-        clearMaskBit(candidateRows, targetRow, bit)
-        clearMaskBit(candidateCols, targetCol, bit)
-        clearMaskBit(candidateBlocks, block, bit)
+        placeCandidate(candidateGrid, candidateRows, candidateCols, candidateBlocks, target.row, target.col, value)
 
         if (backtrackSync(candidateGrid, candidateRows, candidateCols, candidateBlocks)) return true
 
-        rowValues[targetCol] = 0
-        restoreMaskBit(candidateRows, targetRow, bit)
-        restoreMaskBit(candidateCols, targetCol, bit)
-        restoreMaskBit(candidateBlocks, block, bit)
+        removeCandidate(candidateGrid, candidateRows, candidateCols, candidateBlocks, target.row, target.col, value)
         candidates ^= bit
       }
 
@@ -509,54 +490,27 @@ export class Sudoku {
     const backtrackCount = (activeGrid: SudokuGrid, activeRows: Uint16Array, activeCols: Uint16Array, activeBlocks: Uint16Array) => {
       if (count >= limit) return
 
-      let targetRow = -1
-      let targetCol = -1
-      let minCandidateCount = 10
-
-      for (let row = 0; row < 9; row++) {
-        const rowValues = getRow(activeGrid, row)
-        if (!rowValues) continue
-        for (let col = 0; col < 9; col++) {
-          if (rowValues[col] !== 0) continue
-          const candidates = activeRows[row]! & activeCols[col]! & activeBlocks[getBlockIndex(row, col)]!
-          const candidateCount = countBits(candidates)
-          if (candidateCount < minCandidateCount) {
-            minCandidateCount = candidateCount
-            targetRow = row
-            targetCol = col
-          }
-          if (candidateCount === 1) break
-        }
-        if (minCandidateCount === 1) break
-      }
-
-      if (targetRow === -1 || targetCol === -1) {
+      const target = selectNextCell(activeGrid, activeRows, activeCols, activeBlocks)
+      if (!target) {
         if (this.validateFullGrid(activeGrid)) count++
         return
       }
-      if (minCandidateCount === 0) return
+      if (target.count === 0) return
 
-      const rowValues = getRow(activeGrid, targetRow)
+      const rowValues = getRow(activeGrid, target.row)
       if (!rowValues) return
 
-      const block = getBlockIndex(targetRow, targetCol)
-      let candidates = activeRows[targetRow]! & activeCols[targetCol]! & activeBlocks[block]!
+      let candidates = getCandidates(activeRows, activeCols, activeBlocks, target.row, target.col)
 
       while (candidates > 0) {
         const bit = candidates & -candidates
         const value = firstCandidateValue(bit)
-        rowValues[targetCol] = value
-        clearMaskBit(activeRows, targetRow, bit)
-        clearMaskBit(activeCols, targetCol, bit)
-        clearMaskBit(activeBlocks, block, bit)
+        placeCandidate(activeGrid, activeRows, activeCols, activeBlocks, target.row, target.col, value)
 
         backtrackCount(activeGrid, activeRows, activeCols, activeBlocks)
         if (count >= limit) return
 
-        rowValues[targetCol] = 0
-        restoreMaskBit(activeRows, targetRow, bit)
-        restoreMaskBit(activeCols, targetCol, bit)
-        restoreMaskBit(activeBlocks, block, bit)
+        removeCandidate(activeGrid, activeRows, activeCols, activeBlocks, target.row, target.col, value)
         candidates ^= bit
       }
     }

@@ -9,6 +9,7 @@
  * 3. 图标触发器的基础可访问性属性。
  */
 import { computed, ref } from 'vue'
+import BaseCard from '@/components/shared/BaseCard.vue'
 
 const props = withDefaults(defineProps<{
   icon: string
@@ -40,9 +41,9 @@ const offset = computed(() => (props.side === 'left' ? '-15px' : '15px'))
         :class="alignmentClass"
         :style="{ width: props.panelWidth, '--offset': offset }"
       >
-        <div class="glass-card">
+        <BaseCard class="glass-card">
           <slot />
-        </div>
+        </BaseCard>
       </div>
     </Transition>
 
@@ -65,9 +66,9 @@ const offset = computed(() => (props.side === 'left' ? '-15px' : '15px'))
         :class="alignmentClass"
         :style="{ width: props.panelWidth, '--offset': offset }"
       >
-        <div class="glass-card">
+        <BaseCard class="glass-card">
           <slot />
-        </div>
+        </BaseCard>
       </div>
     </Transition>
   </div>

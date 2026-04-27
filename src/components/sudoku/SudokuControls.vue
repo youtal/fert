@@ -7,6 +7,7 @@
  * 这样可以保证所有业务分支都收口到 useSudoku 中处理。
  */
 import { ref, watch } from 'vue'
+import BaseCard from '@/components/shared/BaseCard.vue'
 
 const props = defineProps<{
   isSolving: boolean
@@ -34,7 +35,7 @@ const updateSpeed = () => emit('update:solveSpeed', localSolveSpeed.value)
 
 <template>
   <div class="controls-section">
-    <div class="glass-card control-panel-inner">
+    <BaseCard class="glass-card control-panel-inner">
       <div class="card-header"><h3>数字面板</h3></div>
       <div class="number-pad">
         <button v-for="n in 9" :key="n" @click="emit('fill', n)" class="pad-btn" :disabled="isSolving || isValidating">{{ n }}</button>
@@ -67,7 +68,7 @@ const updateSpeed = () => emit('update:solveSpeed', localSolveSpeed.value)
           <button class="action-btn danger flex-1" @click="emit('clear')" :disabled="isSolving || isValidating">清空棋盘</button>
         </div>
       </div>
-    </div>
+    </BaseCard>
   </div>
 </template>
 

@@ -112,11 +112,11 @@ describe('useEcosystem', () => {
     wrapper.unmount()
   })
 
-  it('重复挂载时不应创建第二套后台仿真时钟', async () => {
+  it('重复挂载时应复用后台时钟并允许新画布接管渲染', async () => {
     const setIntervalSpy = vi.spyOn(globalThis, 'setInterval')
-    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {})
-    const clearRect = vi.fn()
-    const mockContext = {
+    const firstClearRect = vi.fn()
+    const secondClearRect = vi.fn()
+    const createContext = (clearRect: ReturnType<typeof vi.fn>) => ({
       clearRect,
       beginPath: vi.fn(),
       arc: vi.fn(),
@@ -134,10 +134,12 @@ describe('useEcosystem', () => {
       strokeStyle: '',
       lineWidth: 0,
       globalAlpha: 1,
-    }
+    })
+    const firstContext = createContext(firstClearRect)
+    const secondContext = createContext(secondClearRect)
 
-    const createCanvasRef = () => ref({
-      getContext: vi.fn(() => mockContext),
+    const createCanvasRef = (context: ReturnType<typeof createContext>) => ref({
+      getContext: vi.fn(() => context),
       width: 800,
       height: 600,
     } as unknown as HTMLCanvasElement)
@@ -154,9 +156,10 @@ describe('useEcosystem', () => {
           required: true,
         },
       },
-      setup() {
+      setup(props) {
         const { setRefs } = useEcosystem()
-        setRefs(createCanvasRef(), createContainerRef())
+        const context = props.instanceId === 1 ? firstContext : secondContext
+        setRefs(createCanvasRef(context), createContainerRef())
         return () => h('div')
       },
     })
@@ -170,9 +173,7 @@ describe('useEcosystem', () => {
     await vi.advanceTimersByTimeAsync(100)
 
     expect(setIntervalSpy).toHaveBeenCalledTimes(1)
-    expect(warnSpy).toHaveBeenCalledTimes(1)
-    expect(warnSpy.mock.calls[0]?.[0]).toContain('duplicate runtime binding ignored')
-    expect(clearRect).toHaveBeenCalled()
+    expect(firstClearRect.mock.calls.length + secondClearRect.mock.calls.length).toBeGreaterThan(0)
 
     wrapper.unmount()
   })

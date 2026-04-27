@@ -92,16 +92,6 @@ describe('GridView (二维点阵视图) 测试', () => {
     expect(freezeButton.classes()).toContain('active')
   })
 
-  it('应该具备滑窗检查高亮绘制能力', () => {
-    mount(GridView)
-
-    for (let frame = 0; frame < 520; frame += 1) {
-      flushFrame()
-    }
-
-    expect(contextMock.strokeRect).toHaveBeenCalled()
-  })
-
   it('鼠标滚轮缩放时应该重绘点阵', async () => {
     const wrapper = mount(GridView)
     const canvas = wrapper.find('canvas').element

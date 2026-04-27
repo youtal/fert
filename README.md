@@ -1,4 +1,4 @@
-# Fret 框架 - 多模块前端算法可视化系统 (v0.2.6)
+# Fret 框架 - 多模块前端算法可视化系统 (v0.2.7)
 
 Fret 是一个基于 Vue 3、Vite、Pinia 和 Vitest 的前端应用，当前包含三个核心演示模块：
 
@@ -10,6 +10,7 @@ Fret 是一个基于 Vue 3、Vite、Pinia 和 Vitest 的前端应用，当前包
 
 - `src/views`：页面级视图
 - `src/components`：界面组件
+- `src/components/shared/BaseCard.vue`：无样式卡片承载模板，新增卡片式 UI 时优先复用并通过 class 继承局部样式
 - `src/composables`：业务控制逻辑
 - `src/models`：生态系统物理模型
 - `src/utils`：数独算法、点阵网络生成器与通用工具
@@ -45,6 +46,7 @@ Fret 是一个基于 Vue 3、Vite、Pinia 和 Vitest 的前端应用，当前包
 npm install
 npm run dev
 npm run test:unit -- --run
+npm run test:coverage
 npm run type-check
 npm run build
 ```
@@ -53,6 +55,7 @@ npm run build
 
 ```bash
 npm run test:unit -- --run
+npm run test:coverage
 npm run type-check
 npm run build
 ```
@@ -62,7 +65,7 @@ npm run build
 - 当前依赖中包含 `vue` 的 `beta` 版本与对应 override，属于实验性栈选择。
 - 标准构建包含 `type-check`，因此 `npm run build` 可直接作为交付门禁。
 - 仓库未实现本地持久化；状态连续性依赖运行时内存与 `KeepAlive`。
-- 当前未安装 Vitest coverage provider；若后续需要百分比覆盖率报告，应先补充 `@vitest/coverage-v8` 并增加 coverage 脚本。
+- 已安装 Vitest V8 coverage provider，并通过 `npm run test:coverage` 输出覆盖率报告与基础阈值门禁。
 
 ## 本版说明
 
@@ -71,13 +74,14 @@ npm run build
 
 ## 测试现状
 
-- 单元/集成测试文件：15
-- 测试用例：75
+- 单元/集成测试文件：17
+- 测试用例：81
 - 覆盖范围包括：
   - 数独算法正确性、非法初盘判定与题目生成
   - 数独与生态系统 composable 的生命周期行为与通知分支
   - 点阵网络 seed 规范化、确定性生成与滑窗补偿
   - 核心视图、侧边栏、浮层卡片与数独 UI 交互
+  - Grid Canvas 绘制层、网络连通性与生成耗时预算
 
 ## 本次更新摘要
 
