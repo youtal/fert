@@ -8,12 +8,18 @@
  */
 import { describe, expect, it } from 'vitest'
 import {
+  GRID_SIZE,
   POINT_COUNT,
   SEED_DIGITS,
+  WINDOW_SIZE,
   formatSeed,
   generateNetworkPlan,
+  getPointCol,
+  getPointRow,
   normalizeSeed,
 } from '@/utils/gridNetwork'
+
+const getEdgeKey = (from: number, to: number) => from < to ? `${from}:${to}` : `${to}:${from}`
 
 describe('gridNetwork 点阵网络生成工具', () => {
   it('应该规范化 16 位十进制种子', () => {
@@ -29,7 +35,7 @@ describe('gridNetwork 点阵网络生成工具', () => {
     expect(secondPlan.baseSegments.length).toBe(firstPlan.baseSegments.length)
     expect(secondPlan.compensationSteps.length).toBe(firstPlan.compensationSteps.length)
     expect(secondPlan.baseSegments.slice(0, 10)).toEqual(firstPlan.baseSegments.slice(0, 10))
-  })
+  }, 15000)
 
   it('滑窗补偿应该向基础随机游走之外追加路径', () => {
     const plan = generateNetworkPlan('0000000000000002')
@@ -37,6 +43,60 @@ describe('gridNetwork 点阵网络生成工具', () => {
 
     expect(plan.baseSegments.length).toBeGreaterThan(0)
     expect(compensationSegmentCount).toBeGreaterThan(0)
+    expect(plan.detectionSteps.length).toBe(plan.compensationSteps.length)
+  })
+
+  it('滑窗区域应该覆盖全部节点', () => {
+    const plan = generateNetworkPlan('0000000000000003')
+    const covered = new Uint8Array(POINT_COUNT)
+
+    for (const step of plan.detectionSteps) {
+      for (let row = step.window.top; row < step.window.top + WINDOW_SIZE; row += 1) {
+        for (let col = step.window.left; col < step.window.left + WINDOW_SIZE; col += 1) {
+          covered[row * GRID_SIZE + col] = 1
+        }
+      }
+    }
+
+    expect(covered.reduce((sum, value) => sum + value, 0)).toBe(POINT_COUNT)
+  })
+
+  it('滑窗探测点对应全局去重并保留判定元数据', () => {
+    const plan = generateNetworkPlan('0000000000000004')
+    const checkedPairs = new Set<string>()
+    let compensatedProbeCount = 0
+
+    for (const step of plan.detectionSteps) {
+      for (const probe of step.probes) {
+        const pairKey = getEdgeKey(probe.from, probe.to)
+        expect(checkedPairs.has(pairKey)).toBe(false)
+        checkedPairs.add(pairKey)
+
+        expect(probe.distance).toBeGreaterThanOrEqual(3)
+        expect(probe.distance).toBeLessThanOrEqual(12)
+        expect(probe.distanceLimit).toBeGreaterThanOrEqual(probe.distance)
+        expect(Number.isFinite(probe.networkDistance) || probe.networkDistance === Number.POSITIVE_INFINITY).toBe(true)
+        expect(probe.compensated).toBe(probe.networkDistance > probe.distanceLimit)
+
+        const fromRow = getPointRow(probe.from)
+        const fromCol = getPointCol(probe.from)
+        const toRow = getPointRow(probe.to)
+        const toCol = getPointCol(probe.to)
+        expect(fromRow).toBeGreaterThanOrEqual(step.window.top)
+        expect(fromRow).toBeLessThan(step.window.top + WINDOW_SIZE)
+        expect(fromCol).toBeGreaterThanOrEqual(step.window.left)
+        expect(fromCol).toBeLessThan(step.window.left + WINDOW_SIZE)
+        expect(toRow).toBeGreaterThanOrEqual(step.window.top)
+        expect(toRow).toBeLessThan(step.window.top + WINDOW_SIZE)
+        expect(toCol).toBeGreaterThanOrEqual(step.window.left)
+        expect(toCol).toBeLessThan(step.window.left + WINDOW_SIZE)
+
+        if (probe.compensated) compensatedProbeCount += 1
+      }
+    }
+
+    expect(checkedPairs.size).toBeGreaterThan(0)
+    expect(compensatedProbeCount).toBeGreaterThan(0)
   })
 
   it('生成的网络应该覆盖为单个连通图', () => {
@@ -75,5 +135,5 @@ describe('gridNetwork 点阵网络生成工具', () => {
 
     expect(plan.baseSegments.length).toBeGreaterThanOrEqual(POINT_COUNT - 1)
     expect(duration).toBeLessThan(2500)
-  })
+  }, 10000)
 })

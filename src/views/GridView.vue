@@ -19,6 +19,7 @@ import {
   generateNetworkPlan,
   normalizeSeed as normalizeGridSeed,
   type CompensationStep,
+  type DetectionStep,
   type GridSegment,
 } from '@/utils/gridNetwork'
 
@@ -35,6 +36,7 @@ let renderFrameId = 0
 let networkSegments: GridSegment[] = []
 let baseSegmentCount = 0
 let compensationSteps: CompensationStep[] = []
+let detectionSteps: DetectionStep[] = []
 
 const viewport: GridViewportState = {
   viewportWidth: 0,
@@ -46,8 +48,9 @@ const viewport: GridViewportState = {
 
 const growthState: GridGrowthState = {
   animatedSegmentCount: 0,
-  activeCompensationStepIndex: 0,
+  activeDetectionStepIndex: 0,
   activeWindow: null,
+  activeProbeSegments: [],
 }
 
 const normalizeSeed = (value: string) => {
@@ -72,7 +75,7 @@ const { startGrowthAnimation, stopGrowthAnimation } = useGridGrowthAnimation({
   state: growthState,
   getBaseSegmentCount: () => baseSegmentCount,
   getNetworkSegmentCount: () => networkSegments.length,
-  getCompensationSteps: () => compensationSteps,
+  getDetectionSteps: () => detectionSteps,
   scheduleDraw,
 })
 
@@ -91,6 +94,7 @@ const regenerateNetwork = (seed: string) => {
   const plan = generateNetworkPlan(seed)
   baseSegmentCount = plan.baseSegments.length
   compensationSteps = plan.compensationSteps
+  detectionSteps = plan.detectionSteps
   networkSegments = [
     ...plan.baseSegments,
     ...plan.compensationSteps.flatMap((step) => step.segments),
@@ -145,6 +149,7 @@ const drawGrid = () => {
     animatedSegmentCount: growthState.animatedSegmentCount,
     networkSegments,
     activeWindow: growthState.activeWindow,
+    activeProbeSegments: growthState.activeProbeSegments,
     pixelRatio: window.devicePixelRatio || 1,
   })
 }

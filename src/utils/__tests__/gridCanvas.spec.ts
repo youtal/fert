@@ -30,7 +30,7 @@ const createContextMock = () => ({
 })
 
 describe('gridCanvas 绘制层', () => {
-  it('应该绘制背景、滑窗、网络线段和可见点', () => {
+  it('应该绘制背景、滑窗、探测点对、网络线段和可见点', () => {
     const context = createContextMock()
 
     drawGridNetwork(context as unknown as CanvasRenderingContext2D, {
@@ -45,6 +45,9 @@ describe('gridCanvas 绘制层', () => {
         { from: 11326, to: 11476, color: '#a78bfa' },
       ],
       activeWindow: { top: 0, left: 0 },
+      activeProbeSegments: [
+        { from: 11325, to: 11335, color: '#94a3b8' },
+      ],
       pixelRatio: 2,
     })
 

@@ -46,9 +46,25 @@ export type CompensationStep = {
   segments: GridSegment[]
 }
 
+export type WindowProbeResult = {
+  from: number
+  to: number
+  distance: number
+  distanceLimit: number
+  networkDistance: number
+  compensated: boolean
+}
+
+export type DetectionStep = {
+  window: GridWindow
+  probes: WindowProbeResult[]
+  segments: GridSegment[]
+}
+
 export type NetworkPlan = {
   baseSegments: GridSegment[]
   compensationSteps: CompensationStep[]
+  detectionSteps: DetectionStep[]
 }
 
 type SeededRandom = () => number
@@ -160,6 +176,21 @@ const getPointIndex = (row: number, col: number) => row * GRID_SIZE + col
 const getEdgeKey = (from: number, to: number) => from < to ? `${from}:${to}` : `${to}:${from}`
 
 const getRandomInt = (max: number, random: SeededRandom) => Math.floor(random() * max)
+
+const createWindowStarts = () => {
+  const starts: number[] = []
+  const lastStart = GRID_SIZE - WINDOW_SIZE
+
+  for (let start = 0; start <= lastStart; start += WINDOW_STEP) {
+    starts.push(start)
+  }
+
+  if (starts[starts.length - 1] !== lastStart) {
+    starts.push(lastStart)
+  }
+
+  return starts
+}
 
 /**
  * 基础路径长度使用近似正态分布。
@@ -395,8 +426,10 @@ const addSlidingWindowCompensation = (
 ) => {
   let compensationEdges = 0
   let compensationPathIndex = 0
-  const steps: CompensationStep[] = []
+  const detectionSteps: DetectionStep[] = []
+  const checkedPairKeys = new Set<string>()
   const scratch = createNetworkDistanceScratch()
+  const windowStarts = createWindowStarts()
 
   const addCompensationPath = (from: number, to: number) => {
     const color = pathColors[(compensationPathIndex + 3) % pathColors.length] ?? DEFAULT_PATH_COLOR
@@ -426,13 +459,14 @@ const addSlidingWindowCompensation = (
     )
   }
 
-  for (let top = 0; top <= GRID_SIZE - WINDOW_SIZE; top += WINDOW_STEP) {
-    for (let left = 0; left <= GRID_SIZE - WINDOW_SIZE; left += WINDOW_STEP) {
-      if (compensationEdges >= COMPENSATION_EDGE_LIMIT) return steps
+  for (const top of windowStarts) {
+    for (const left of windowStarts) {
+      if (compensationEdges >= COMPENSATION_EDGE_LIMIT) return detectionSteps
 
       const window = { top, left }
-      const step: CompensationStep = {
+      const step: DetectionStep = {
         window,
+        probes: [],
         segments: [],
       }
 
@@ -442,11 +476,24 @@ const addSlidingWindowCompensation = (
       for (const pair of probePairs) {
         if (compensationEdges >= COMPENSATION_EDGE_LIMIT) break
         if (compensationPaths >= MAX_COMPENSATION_PATHS_PER_WINDOW) break
+        const pairKey = getEdgeKey(pair.from, pair.to)
+        if (checkedPairKeys.has(pairKey)) continue
+        checkedPairKeys.add(pairKey)
 
         const distanceLimit = getDistanceLimit(pair.distance)
         const networkDistance = getLimitedNetworkDistance(pair.from, pair.to, adjacency, distanceLimit, scratch)
+        const compensated = networkDistance > distanceLimit
+        const probe: WindowProbeResult = {
+          from: pair.from,
+          to: pair.to,
+          distance: pair.distance,
+          distanceLimit,
+          networkDistance,
+          compensated,
+        }
+        step.probes.push(probe)
 
-        if (networkDistance > distanceLimit) {
+        if (compensated) {
           const segments = addCompensationPath(pair.from, pair.to)
           if (segments.length > 0) {
             step.segments.push(...segments)
@@ -455,11 +502,11 @@ const addSlidingWindowCompensation = (
         }
       }
 
-      steps.push(step)
+      detectionSteps.push(step)
     }
   }
 
-  return steps
+  return detectionSteps
 }
 
 export const generateNetworkPlan = (seed: string): NetworkPlan => {
@@ -580,10 +627,15 @@ export const generateNetworkPlan = (seed: string): NetworkPlan => {
   }
 
   const baseSegments = [...segments]
-  const compensationSteps = addSlidingWindowCompensation(random, adjacency, addSegment)
+  const detectionSteps = addSlidingWindowCompensation(random, adjacency, addSegment)
+  const compensationSteps = detectionSteps.map(({ window, segments }) => ({
+    window,
+    segments,
+  }))
 
   return {
     baseSegments,
     compensationSteps,
+    detectionSteps,
   }
 }

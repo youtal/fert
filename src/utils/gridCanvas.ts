@@ -27,6 +27,7 @@ export type GridCanvasState = {
   animatedSegmentCount: number
   networkSegments: GridSegment[]
   activeWindow: GridWindow | null
+  activeProbeSegments?: GridSegment[]
   pixelRatio: number
 }
 
@@ -46,6 +47,7 @@ export const drawGridNetwork = (context: CanvasRenderingContext2D, state: GridCa
     animatedSegmentCount,
     networkSegments,
     activeWindow,
+    activeProbeSegments = [],
     pixelRatio,
   } = state
   const gap = GRID_BASE_GAP * zoom
@@ -89,6 +91,33 @@ export const drawGridNetwork = (context: CanvasRenderingContext2D, state: GridCa
   context.lineWidth = lineWidth
   context.lineCap = 'round'
   context.lineJoin = 'round'
+
+  if (activeProbeSegments.length > 0) {
+    context.lineWidth = clamp(GRID_BASE_RADIUS * 0.22 * zoom, 1, 4)
+    for (const segment of activeProbeSegments) {
+      const fromX = baseX + getPointCol(segment.from) * gap
+      const fromY = baseY + getPointRow(segment.from) * gap
+      const toX = baseX + getPointCol(segment.to) * gap
+      const toY = baseY + getPointRow(segment.to) * gap
+
+      if (
+        Math.max(fromX, toX) < -lineWidth ||
+        Math.min(fromX, toX) > viewportWidth + lineWidth ||
+        Math.max(fromY, toY) < -lineWidth ||
+        Math.min(fromY, toY) > viewportHeight + lineWidth
+      ) {
+        continue
+      }
+
+      context.strokeStyle = segment.color
+      context.globalAlpha = 0.38
+      context.beginPath()
+      context.moveTo(fromX, fromY)
+      context.lineTo(toX, toY)
+      context.stroke()
+    }
+    context.lineWidth = lineWidth
+  }
 
   for (let index = 0; index < animatedSegmentCount; index += 1) {
     const segment = networkSegments[index]

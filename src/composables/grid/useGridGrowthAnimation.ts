@@ -2,15 +2,16 @@
  * composables/grid/useGridGrowthAnimation.ts
  *
  * GridView 的折线生长动画控制器。
- * 该 composable 只推进“当前应该显示多少线段”和“当前高亮哪个滑窗”。
+ * 该 composable 推进“当前检测到哪个滑窗、哪些点对正在被探测、补偿线段显示到哪里”。
  */
 import type { Ref } from 'vue'
-import type { CompensationStep, GridWindow } from '@/utils/gridNetwork'
+import type { DetectionStep, GridSegment, GridWindow } from '@/utils/gridNetwork'
 
 export type GridGrowthState = {
   animatedSegmentCount: number
-  activeCompensationStepIndex: number
+  activeDetectionStepIndex: number
   activeWindow: GridWindow | null
+  activeProbeSegments: GridSegment[]
 }
 
 type UseGridGrowthAnimationOptions = {
@@ -18,7 +19,7 @@ type UseGridGrowthAnimationOptions = {
   state: GridGrowthState
   getBaseSegmentCount: () => number
   getNetworkSegmentCount: () => number
-  getCompensationSteps: () => CompensationStep[]
+  getDetectionSteps: () => DetectionStep[]
   scheduleDraw: () => void
 }
 
@@ -27,7 +28,7 @@ export const useGridGrowthAnimation = ({
   state,
   getBaseSegmentCount,
   getNetworkSegmentCount,
-  getCompensationSteps,
+  getDetectionSteps,
   scheduleDraw,
 }: UseGridGrowthAnimationOptions) => {
   let growthFrameId = 0
@@ -43,7 +44,8 @@ export const useGridGrowthAnimation = ({
 
     state.animatedSegmentCount = 0
     state.activeWindow = null
-    state.activeCompensationStepIndex = 0
+    state.activeProbeSegments = []
+    state.activeDetectionStepIndex = 0
 
     const grow = () => {
       const baseSegmentCount = getBaseSegmentCount()
@@ -51,25 +53,32 @@ export const useGridGrowthAnimation = ({
       if (state.animatedSegmentCount < baseSegmentCount) {
         state.animatedSegmentCount = Math.min(state.animatedSegmentCount + animationSpeed.value, baseSegmentCount)
         state.activeWindow = null
+        state.activeProbeSegments = []
         scheduleDraw()
         growthFrameId = window.requestAnimationFrame(grow)
         return
       }
 
-      const activeStep = getCompensationSteps()[state.activeCompensationStepIndex]
+      const activeStep = getDetectionSteps()[state.activeDetectionStepIndex]
       if (!activeStep) {
         state.activeWindow = null
+        state.activeProbeSegments = []
         scheduleDraw()
         growthFrameId = 0
         return
       }
 
       state.activeWindow = activeStep.window
+      state.activeProbeSegments = activeStep.probes.map((probe) => ({
+        from: probe.from,
+        to: probe.to,
+        color: probe.compensated ? '#fbbf24' : '#94a3b8',
+      }))
       state.animatedSegmentCount = Math.min(
         state.animatedSegmentCount + activeStep.segments.length,
         getNetworkSegmentCount(),
       )
-      state.activeCompensationStepIndex += 1
+      state.activeDetectionStepIndex += 1
       scheduleDraw()
 
       growthFrameId = window.requestAnimationFrame(grow)
